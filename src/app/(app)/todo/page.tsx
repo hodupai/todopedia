@@ -218,7 +218,7 @@ export default function TodoPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-4 p-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-4">
       {/* 일일 목표 진행률 */}
       <div className="pixel-panel p-4">
         <div className="flex items-center justify-between font-pixel">
@@ -239,7 +239,7 @@ export default function TodoPage() {
       </div>
 
       {/* 서브탭 */}
-      <div className="flex gap-2">
+      <div className="-mt-1 flex gap-2">
         {TABS.map((t) => (
           <button
             key={t}
@@ -280,8 +280,8 @@ export default function TodoPage() {
       )}
 
       {/* 투두 리스트 */}
-      <div className="pixel-panel flex-1 p-4">
-        <div className="flex items-center justify-between">
+      <div className="pixel-panel flex min-h-0 flex-1 flex-col p-4">
+        <div className="flex shrink-0 items-center justify-between">
           <h2 className="font-pixel text-base text-theme">
             {tab === "할 일" ? "할 일 목록" : "습관 트래커"}
           </h2>
@@ -293,7 +293,7 @@ export default function TodoPage() {
           </button>
         </div>
 
-        <div className="mt-3 space-y-2">
+        <div className="mt-3 space-y-2 overflow-y-auto scrollbar-hide">
           {tab === "할 일" ? (
             todoItems.length === 0 ? (
               <EmptyState icon="📝" text="아직 할 일이 없어요" />
@@ -947,25 +947,65 @@ function EditModal({
           />
 
           {todo.type !== "habit" && (
-            <div className="flex items-center gap-2">
-              <span className="shrink-0 font-pixel text-sm text-theme-muted">반복</span>
-              <div className="flex flex-1 gap-1">
-                {[
-                  { value: null, label: "없음" },
-                  { value: "daily", label: "매일" },
-                  { value: "weekly", label: "매주" },
-                  { value: "monthly", label: "매달" },
-                ].map((r) => (
-                  <button
-                    key={r.label}
-                    type="button"
-                    onClick={() => { setRepeatType(r.value); setRepeatDays([]); }}
-                    className="pixel-button flex-1 py-1 font-pixel text-xs"
-                    style={{ opacity: repeatType === r.value ? 1 : 0.4, color: "var(--theme-text)" }}
-                  >
-                    {r.label}
-                  </button>
-                ))}
+            <div className="flex items-start gap-2">
+              <span className="shrink-0 pt-1 font-pixel text-sm text-theme-muted">반복</span>
+              <div className="flex flex-1 flex-col gap-2">
+                <div className="flex gap-1">
+                  {[
+                    { value: null, label: "없음" },
+                    { value: "daily", label: "매일" },
+                    { value: "weekly", label: "매주" },
+                    { value: "monthly", label: "매달" },
+                  ].map((r) => (
+                    <button
+                      key={r.label}
+                      type="button"
+                      onClick={() => { setRepeatType(r.value); setRepeatDays([]); }}
+                      className="pixel-button flex-1 py-1 font-pixel text-xs"
+                      style={{ opacity: repeatType === r.value ? 1 : 0.4, color: "var(--theme-text)" }}
+                    >
+                      {r.label}
+                    </button>
+                  ))}
+                </div>
+                {repeatType === "weekly" && (
+                  <div className="flex gap-1">
+                    {DAY_NAMES.map((name, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => setRepeatDays(
+                          repeatDays.includes(i)
+                            ? repeatDays.filter((d) => d !== i)
+                            : [...repeatDays, i].sort()
+                        )}
+                        className="pixel-button flex-1 py-1.5 font-pixel text-sm"
+                        style={{ opacity: repeatDays.includes(i) ? 1 : 0.3, color: "var(--theme-text)" }}
+                      >
+                        {name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {repeatType === "monthly" && (
+                  <div className="flex flex-wrap gap-1">
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                      <button
+                        key={d}
+                        type="button"
+                        onClick={() => setRepeatDays(
+                          repeatDays.includes(d)
+                            ? repeatDays.filter((v) => v !== d)
+                            : [...repeatDays, d].sort((a, b) => a - b)
+                        )}
+                        className="pixel-button w-9 py-1 font-pixel text-xs"
+                        style={{ opacity: repeatDays.includes(d) ? 1 : 0.3, color: "var(--theme-text)" }}
+                      >
+                        {d}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
