@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: "DungGeunMo";
+  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_six@1.2/DungGeunMo.woff") format("woff");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --font-pixel: "DungGeunMo", monospace;
+
+  /* 테마 에셋 (기본값: paper) */
+  --theme-frame: url("/ui/paper/frame.png");
+  --theme-input: url("/ui/paper/input.png");
+  --theme-button: url("/ui/paper/button.png");
+  --theme-button-hover: url("/ui/paper/button-hover.png");
+  --theme-banner: url("/ui/paper/banner.png");
+
+  /* 테마 색상 */
+  --theme-bg: #f5e6d0;
+  --theme-bg-translucent: rgba(245, 230, 208, 0.5);
+  --theme-text: #3a2010;
+  --theme-text-muted: #6b4f30;
+  --theme-placeholder: #a08a6a;
+  --theme-accent: #b06820;
+  --theme-gold: #8b6500;
+  --theme-header-bg: #e8d5b8;
+  --theme-header-text: #3a2010;
+  --theme-nav-bg: #e8d5b8;
+  --theme-nav-text: #a08a6a;
+  --theme-nav-text-active: #3a2010;
+}
+
+.pixel-art {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+.pixel-panel {
+  border-image: var(--theme-frame) 10 fill / 10px / 0 stretch;
+  image-rendering: pixelated;
+}
+
+.pixel-input {
+  border-image: var(--theme-input) 6 fill / 6px / 0 stretch;
+  image-rendering: pixelated;
+}
+
+.pixel-button {
+  border-image: var(--theme-button) 8 fill / 8px / 0 stretch;
+  image-rendering: pixelated;
+}
+
+.pixel-button:hover {
+  border-image: var(--theme-button-hover) 8 fill / 8px / 0 stretch;
+}
+
+/* 유틸리티 */
+.font-pixel {
+  font-family: var(--font-pixel);
+}
+
+.text-theme {
+  color: var(--theme-text);
+}
+
+.text-theme-muted {
+  color: var(--theme-text-muted);
+}
+
+.bg-theme {
+  background-color: var(--theme-bg);
+}
+
+/* 토스트 애니메이션 */
+@keyframes fade-in-out {
+  0% { opacity: 0; transform: translateY(8px); }
+  15% { opacity: 1; transform: translateY(0); }
+  85% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(8px); }
+}
+
+.animate-fade-in {
+  animation: fade-in-out 2s ease-in-out forwards;
+}
+
+@keyframes fade-in-out-down {
+  0% { opacity: 0; transform: translateY(-8px); }
+  15% { opacity: 1; transform: translateY(0); }
+  85% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-8px); }
+}
+
+.animate-fade-in-down {
+  animation: fade-in-out-down 2s ease-in-out forwards;
+}
+
+/* number input 화살표 제거 */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
