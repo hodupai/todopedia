@@ -32,7 +32,7 @@ export async function createTodo(formData: FormData) {
     tag_id: tagId || null,
     is_important: isImportant,
     repeat_type: type === "habit" ? "daily" : (repeatType || null),
-    repeat_days: repeatDays ? JSON.parse(repeatDays) : null,
+    repeat_days: repeatDays ? (() => { try { return JSON.parse(repeatDays); } catch { return null; } })() : null,
     target_count: type === "loop" ? Number(targetCount) || 1 : null,
     habit_type: type === "habit" ? (habitType || "positive") : null,
   });
@@ -64,7 +64,7 @@ export async function updateTodo(formData: FormData) {
       tag_id: tagId || null,
       is_important: isImportant,
       repeat_type: repeatType || null,
-      repeat_days: repeatDays ? JSON.parse(repeatDays) : null,
+      repeat_days: repeatDays ? (() => { try { return JSON.parse(repeatDays); } catch { return null; } })() : null,
       updated_at: new Date().toISOString(),
     })
     .eq("id", id)

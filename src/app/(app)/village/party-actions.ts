@@ -39,23 +39,23 @@ export async function getMyParties(): Promise<Party[]> {
 
   if (!parties) return [];
 
-  const result: Party[] = [];
-  for (const party of parties) {
-    const { data: members } = await supabase
-      .from("party_members")
-      .select("user_id, status, profiles:user_id(nickname)")
-      .eq("party_id", party.id);
+  // 전체 멤버를 한 번에 조회 (N+1 방지)
+  const { data: allMembers } = await supabase
+    .from("party_members")
+    .select("party_id, user_id, status, profiles:user_id(nickname)")
+    .in("party_id", partyIds);
 
-    result.push({
-      ...party,
-      members: (members || []).map((m: any) => ({
-        user_id: m.user_id,
-        nickname: (m.profiles as any)?.nickname || "???",
-        status: m.status,
-      })),
-    });
-  }
-  return result;
+  const membersByParty = new Map<string, { user_id: string; nickname: string; status: string }[]>();
+  (allMembers || []).forEach((m: any) => {
+    const list = membersByParty.get(m.party_id) || [];
+    list.push({ user_id: m.user_id, nickname: (m.profiles as any)?.nickname || "???", status: m.status });
+    membersByParty.set(m.party_id, list);
+  });
+
+  return parties.map((party: any) => ({
+    ...party,
+    members: membersByParty.get(party.id) || [],
+  }));
 }
 
 // ── 대기 중인 초대 ──
