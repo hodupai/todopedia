@@ -1,0 +1,208 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import {
+  getMyParties, getPartyTodos, getPartyLogs,
+  createPartyTodo, completePartyTodo, getCurrentUserId,
+} from "./party-actions";
+import type { Party, PartyTodo, PartyRecord, PartyLog } from "./party-actions";
+import { useGold } from "@/components/GoldProvider";
+import { useToast } from "@/components/Toast";
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "방금";
+  if (mins < 60) return `${mins}분 전`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}시간 전`;
+  return `${Math.floor(hours / 24)}일 전`;
+}
+
+export default function PartyTab() {
+  const [parties, setParties] = useState<Party[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    const [p, uid] = await Promise.all([getMyParties(), getCurrentUserId()]);
+    setParties(p);
+    setUserId(uid);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  if (loading) {
+    return <div className="flex justify-center py-8"><p className="font-pixel text-xs text-theme-muted">로딩 중...</p></div>;
+  }
+
+  if (parties.length === 0) {
+    return (
+      <div className="flex flex-col items-center py-8">
+        <p className="font-pixel text-sm text-theme-muted">파티가 없어요</p>
+        <p className="font-pixel text-xs text-theme-muted mt-1">마을 → 파티관리소에서 파티를 만들어보세요</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {parties.map((party) => (
+        <PartySection key={party.id} party={party} userId={userId} onRefresh={loadData} />
+      ))}
+    </div>
+  );
+}
+
+function PartySection({ party, userId, onRefresh }: { party: Party; userId: string | null; onRefresh: () => void }) {
+  const [expanded, setExpanded] = useState(false);
+  const [todos, setTodos] = useState<PartyTodo[]>([]);
+  const [records, setRecords] = useState<Record<string, PartyRecord[]>>({});
+  const [logs, setLogs] = useState<PartyLog[]>([]);
+  const [showAddTodo, setShowAddTodo] = useState(false);
+  const { refresh: refreshGold } = useGold();
+  const { show: showToast } = useToast();
+
+  const loadPartyData = useCallback(async () => {
+    if (!expanded) return;
+    const [td, lg] = await Promise.all([getPartyTodos(party.id), getPartyLogs(party.id)]);
+    setTodos(td.todos);
+    setRecords(td.records);
+    setLogs(lg);
+  }, [expanded, party.id]);
+
+  useEffect(() => { loadPartyData(); }, [loadPartyData]);
+
+  const handleComplete = async (todoId: string) => {
+    const r = await completePartyTodo(todoId);
+    if (r.error) { showToast(r.error); return; }
+    if (r.data?.gold > 0) showToast("투두 완료!", `+${r.data.gold}G`);
+    else if (r.data?.all_done) showToast("🎉 목표 달성!");
+    else showToast("기여 완료!");
+    refreshGold();
+    loadPartyData();
+  };
+
+  return (
+    <div className="pixel-panel p-3">
+      <button onClick={() => setExpanded(!expanded)} className="flex w-full items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="font-pixel text-xs">{party.type === "individual" ? "👤" : "👥"}</span>
+          <span className="font-pixel text-sm text-theme">{party.name}</span>
+        </div>
+        <span className="font-pixel text-[10px] text-theme-muted">{expanded ? "▲" : "▼"}</span>
+      </button>
+
+      {expanded && (
+        <div className="mt-3 space-y-2">
+          {/* 투두 목록 */}
+          {todos.length === 0 && (
+            <p className="font-pixel text-xs text-theme-muted text-center py-2">투두가 없어요</p>
+          )}
+          {todos.map((todo) => {
+            const recs = records[todo.id] || [];
+            const todayCount = recs.length;
+            const myDone = recs.length > 0;
+
+            return (
+              <div key={todo.id} className="pixel-input flex items-center gap-2 p-2">
+                <button
+                  onClick={() => !myDone && handleComplete(todo.id)}
+                  className="shrink-0 font-pixel text-sm"
+                  style={{ opacity: myDone ? 0.4 : 1 }}
+                >
+                  {myDone ? "✅" : "⬜"}
+                </button>
+                <div className="flex-1 min-w-0">
+                  <p className="font-pixel text-xs text-theme truncate">{todo.title}</p>
+                  {party.type === "collaborative" && (
+                    <p className="font-pixel text-[10px] text-theme-muted">
+                      {todayCount}/{todo.target_count}
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* 투두 추가: 각자=전원, 다같이=파티장만 */}
+          {(party.type === "individual" || party.leader_id === userId) && (
+            <>
+              <button
+                onClick={() => setShowAddTodo(true)}
+                className="pixel-button w-full py-1.5 font-pixel text-xs text-theme-muted"
+              >+ 투두 추가</button>
+
+              {showAddTodo && (
+                <AddTodoForm
+                  party={party}
+                  onClose={() => setShowAddTodo(false)}
+                  onCreated={() => { setShowAddTodo(false); loadPartyData(); }}
+                />
+              )}
+            </>
+          )}
+
+          {/* 활동 기록 */}
+          {logs.length > 0 && (
+            <div className="pt-2" style={{ borderTop: "1px dashed var(--theme-placeholder)" }}>
+              <p className="font-pixel text-[10px] text-theme-muted mb-1">기록</p>
+              <div className="space-y-1 max-h-32 overflow-y-auto scrollbar-hide">
+                {logs.map((log, i) => (
+                  <div key={i} className="flex justify-between font-pixel text-[10px]">
+                    <span className="text-theme truncate flex-1">{log.content}</span>
+                    <span className="text-theme-muted shrink-0 ml-2">{timeAgo(log.created_at)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AddTodoForm({ party, onClose, onCreated }: { party: Party; onClose: () => void; onCreated: () => void }) {
+  const [title, setTitle] = useState("");
+  const [targetCount, setTargetCount] = useState(party.members.length);
+  const { show: showToast } = useToast();
+
+  const handleSubmit = async () => {
+    if (!title.trim()) return;
+    const r = await createPartyTodo(
+      party.id, title.trim(),
+      party.type === "collaborative" ? targetCount : 1
+    );
+    if (r.error) showToast(r.error);
+    else onCreated();
+  };
+
+  return (
+    <div className="pixel-input p-2 space-y-2">
+      <input
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="할 일 입력"
+        className="pixel-input w-full bg-transparent px-2 py-1.5 font-pixel text-xs text-theme placeholder:text-theme-muted focus:outline-none"
+      />
+      {party.type === "collaborative" && (
+        <div className="flex items-center gap-2">
+          <span className="font-pixel text-[10px] text-theme-muted">목표</span>
+          <input
+            type="number" min="1" value={targetCount}
+            onChange={(e) => setTargetCount(Math.max(1, Number(e.target.value)))}
+            className="pixel-input w-16 bg-transparent text-center font-pixel text-xs text-theme focus:outline-none"
+          />
+          <span className="font-pixel text-[10px] text-theme-muted">회</span>
+        </div>
+      )}
+      <div className="flex gap-1">
+        <button onClick={handleSubmit} className="pixel-button flex-1 py-1 font-pixel text-xs text-theme">추가</button>
+        <button onClick={onClose} className="pixel-button flex-1 py-1 font-pixel text-xs text-theme-muted">취소</button>
+      </div>
+    </div>
+  );
+}

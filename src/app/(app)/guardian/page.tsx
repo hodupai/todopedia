@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { startGuardian, recordGrowth, evolveGuardian, getTodayCare, getOwnedItemsByCategory, useCareItem, getOwnedPotions } from "./actions";
-import type { CareStatus, OwnedCareItem, OwnedPotion } from "./actions";
+import { startGuardian, recordGrowth, evolveGuardian, getTodayCare, getOwnedItemsByCategory, useCareItem, getOwnedPotions, getTodayActivity } from "./actions";
+import type { CareStatus, OwnedCareItem, OwnedPotion, ActivityLog } from "./actions";
 import { calcProbabilities } from "./probabilities";
 import { useGold } from "@/components/GoldProvider";
 import { useToast } from "@/components/Toast";
@@ -23,6 +23,7 @@ type GrowthData = {
   today_completed: number;
   total_goal: number;
   total_completed: number;
+  total_care: number;
 };
 
 type EvolutionResult = {
@@ -68,6 +69,7 @@ export default function GuardianPage() {
   const [careCategory, setCareCategory] = useState<string | null>(null);
   const [careItems, setCareItems] = useState<OwnedCareItem[]>([]);
   const [careLoading, setCareLoading] = useState(false);
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [showEvolveModal, setShowEvolveModal] = useState(false);
   const [potions, setPotions] = useState<OwnedPotion[]>([]);
   const [selectedPotion, setSelectedPotion] = useState<OwnedPotion | null>(null);
@@ -92,8 +94,9 @@ export default function GuardianPage() {
     } else {
       setState("growing");
       setGrowthData(data);
-      const care = await getTodayCare();
+      const [care, logs] = await Promise.all([getTodayCare(), getTodayActivity()]);
       setCareStatus(care);
+      setActivityLogs(logs);
     }
 
     setLoading(false);
@@ -267,9 +270,9 @@ export default function GuardianPage() {
   const growthPercent = growthData
     ? Math.min(100, Math.round((growthData.total_growth / growthData.max_growth) * 100))
     : 0;
-  const todayGrowth = growthData?.today_growth ?? 0;
   const totalGoal = growthData?.total_goal ?? 0;
   const totalCompleted = growthData?.total_completed ?? 0;
+  const totalCare = growthData?.total_care ?? 0;
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
@@ -346,12 +349,10 @@ export default function GuardianPage() {
               <span className="text-theme-muted">총 달성</span>
               <span className="text-theme">{totalCompleted}개</span>
             </div>
-            {state === "growing" && (
-              <div className="flex justify-between font-pixel text-xs">
-                <span className="text-theme-muted">오늘 성장치</span>
-                <span className="text-theme">+{todayGrowth}</span>
-              </div>
-            )}
+            <div className="flex justify-between font-pixel text-xs">
+              <span className="text-theme-muted">총 돌봄</span>
+              <span className="text-theme">{totalCare}회</span>
+            </div>
 
             {/* 확률 표시 */}
             {growthData && (() => {
@@ -402,6 +403,42 @@ export default function GuardianPage() {
                 </button>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* 오늘의 기록 */}
+      {state === "growing" && activityLogs.length > 0 && (
+        <div className="pixel-panel p-4">
+          <h2 className="font-pixel text-sm text-theme">오늘의 기록</h2>
+          <div className="mt-3 space-y-2 max-h-40 overflow-y-auto scrollbar-hide">
+            {activityLogs.map((log, i) => (
+              <div key={i} className="flex items-center gap-2 font-pixel text-xs">
+                <span className="shrink-0">
+                  {log.type === "todo" && "✅"}
+                  {log.type === "care" && "💝"}
+                  {(log.type === "buy_item" || log.type === "buy_potion") && "🛒"}
+                  {log.type === "heart_given" && "💗"}
+                  {log.type === "heart_received" && "❤️"}
+                </span>
+                <span className="flex-1 text-theme truncate">
+                  {log.type === "todo" && `${log.title} 완료!`}
+                  {log.type === "care" && `${log.title}(으)로 돌봄`}
+                  {log.type === "buy_item" && `${log.title} 구매`}
+                  {log.type === "buy_potion" && `${log.title} 구매`}
+                  {log.type === "heart_given" && log.title}
+                  {log.type === "heart_received" && log.title}
+                </span>
+                {log.gold !== 0 && (
+                  <span
+                    className="shrink-0 font-pixel text-xs"
+                    style={{ color: log.gold > 0 ? "var(--theme-gold)" : "var(--theme-accent)" }}
+                  >
+                    {log.gold > 0 ? `+${log.gold}G` : `${log.gold}G`}
+                  </span>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -535,7 +572,7 @@ export default function GuardianPage() {
                 소지한 아이템이 없어요. 가디용품점에서 구매해주세요!
               </p>
             ) : (
-              <div className="mt-3 grid grid-cols-4 gap-2 max-h-48 overflow-y-auto">
+              <div className="mt-3 grid grid-cols-4 gap-2 max-h-48 overflow-y-auto scrollbar-hide">
                 {careItems.map((item) => (
                   <button
                     key={item.id}

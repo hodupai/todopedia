@@ -15,7 +15,7 @@ export default function AppLayout({
         <ToastProvider>
           <div className="pixel-panel flex flex-1 flex-col overflow-hidden">
             <Header />
-            <main className="flex flex-1 flex-col overflow-y-auto" style={{ backgroundColor: "var(--theme-bg-translucent)" }}>
+            <main className="flex flex-1 flex-col overflow-y-auto scrollbar-hide" style={{ backgroundColor: "var(--theme-bg-translucent)" }}>
               {children}
             </main>
             <BottomNav />

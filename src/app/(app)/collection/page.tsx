@@ -247,7 +247,7 @@ function ItemCollection() {
         ))}
       </div>
 
-      <div className="pixel-panel flex-1 overflow-y-auto p-4">
+      <div className="pixel-panel flex-1 overflow-y-auto scrollbar-hide p-4">
         <div className="flex items-center justify-between font-pixel">
           <span className="text-sm text-theme">
             {ITEM_CATEGORIES.find((c) => c.key === category)?.label}

@@ -13,7 +13,8 @@ import {
   createTag,
   ensureDailyRecords,
 } from "./actions";
-import { getActiveGuardian, startGuardian } from "../guardian/actions";
+import { getActiveGuardian, startGuardian, postDailyGoalWall } from "../guardian/actions";
+import PartyTab from "./PartyTab";
 import { useGold } from "@/components/GoldProvider";
 import { useToast } from "@/components/Toast";
 
@@ -88,7 +89,7 @@ function PixelToggle({
   );
 }
 
-const TABS = ["할 일", "습관"] as const;
+const TABS = ["할 일", "습관", "파티"] as const;
 
 export default function TodoPage() {
   const [tab, setTab] = useState<(typeof TABS)[number]>("할 일");
@@ -166,6 +167,7 @@ export default function TodoPage() {
       );
       if (result.completedCount === result.dailyGoal) {
         setTimeout(() => toast.show("🎉 일일 목표 달성!", undefined, "top-center"), 500);
+        postDailyGoalWall();
       }
     } else if (result.success && !result.completed) {
       if (result.gold < 0) {
@@ -187,6 +189,7 @@ export default function TodoPage() {
       );
       if (result.completedCount === result.dailyGoal) {
         setTimeout(() => toast.show("🎉 일일 목표 달성!", undefined, "top-center"), 500);
+        postDailyGoalWall();
       }
     }
   };
@@ -258,8 +261,15 @@ export default function TodoPage() {
         ))}
       </div>
 
+      {/* 파티 탭 */}
+      {tab === "파티" && (
+        <div className="pixel-panel flex min-h-0 flex-1 flex-col overflow-y-auto scrollbar-hide p-4">
+          <PartyTab />
+        </div>
+      )}
+
       {/* 태그 필터 */}
-      {tags.length > 0 && (
+      {tab !== "파티" && tags.length > 0 && (
         <div className="flex gap-3 overflow-x-auto px-1 scrollbar-hide">
           <button
             onClick={() => setFilterTagId(null)}
@@ -286,7 +296,7 @@ export default function TodoPage() {
       )}
 
       {/* 투두 리스트 */}
-      <div className="pixel-panel flex min-h-0 flex-1 flex-col p-4">
+      {tab !== "파티" && <div className="pixel-panel flex min-h-0 flex-1 flex-col p-4">
         <div className="flex shrink-0 items-center justify-between">
           <h2 className="font-pixel text-base text-theme">
             {tab === "할 일" ? "할 일 목록" : "습관 트래커"}
@@ -331,7 +341,7 @@ export default function TodoPage() {
             ))
           )}
         </div>
-      </div>
+      </div>}
 
       {showGuardianStartModal && (
         <GuardianStartModal onStarted={handleGuardianStarted} />

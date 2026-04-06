@@ -84,7 +84,7 @@ export default function ShopPage() {
       </div>
 
       {/* 아이템 목록 */}
-      <div className="pixel-panel flex-1 overflow-y-auto p-3">
+      <div className="pixel-panel flex-1 overflow-y-auto scrollbar-hide p-3">
         {loading ? (
           <div className="flex justify-center py-8">
             <p className="font-pixel text-xs text-theme-muted">로딩 중...</p>

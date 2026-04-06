@@ -131,6 +131,121 @@ export async function getOwnedPotions(): Promise<OwnedPotion[]> {
   }));
 }
 
+export type ActivityLog = {
+  type: "todo" | "care" | "buy_item" | "buy_potion" | "heart_given" | "heart_received";
+  title: string;
+  gold: number;
+  time: string;
+};
+
+// ── 오늘 활동 기록 ──
+export async function getTodayActivity(): Promise<ActivityLog[]> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const today = new Date().toISOString().split("T")[0];
+  const logs: ActivityLog[] = [];
+
+  // 1. 완료된 투두
+  const { data: records } = await supabase
+    .from("daily_records")
+    .select("is_completed, gold_earned, updated_at, todos(title, type)")
+    .eq("user_id", user.id)
+    .eq("record_date", today)
+    .eq("is_completed", true);
+
+  (records || []).forEach((r: any) => {
+    if (r.todos?.type !== "habit") {
+      logs.push({
+        type: "todo",
+        title: r.todos?.title || "투두",
+        gold: r.gold_earned || 0,
+        time: r.updated_at,
+      });
+    }
+  });
+
+  // 2. 돌봄 기록
+  const { data: cares } = await supabase
+    .from("care_log")
+    .select("created_at, item_types(name)")
+    .eq("user_id", user.id)
+    .eq("used_date", today);
+
+  (cares || []).forEach((c: any) => {
+    logs.push({
+      type: "care",
+      title: c.item_types?.name || "아이템",
+      gold: 0,
+      time: c.created_at,
+    });
+  });
+
+  // 3. 하트 준 기록
+  const { data: heartsGiven } = await supabase
+    .from("wall_hearts")
+    .select("created_at, wall_posts(user_id, profiles:user_id(nickname))")
+    .eq("user_id", user.id)
+    .gte("created_at", today + "T00:00:00+09:00")
+    .lt("created_at", today + "T00:00:00+09:00");
+
+  // 하트는 날짜 필터가 어려우니 오늘 생성된 것만
+  const todayStart = new Date(today + "T00:00:00+09:00").toISOString();
+  const { data: heartsGivenToday } = await supabase
+    .from("wall_hearts")
+    .select("created_at")
+    .eq("user_id", user.id)
+    .gte("created_at", todayStart);
+
+  (heartsGivenToday || []).forEach((h: any) => {
+    logs.push({
+      type: "heart_given",
+      title: "하트를 보냈어요",
+      gold: 10,
+      time: h.created_at,
+    });
+  });
+
+  // 4. 하트 받은 기록
+  const { data: myPosts } = await supabase
+    .from("wall_posts")
+    .select("id")
+    .eq("user_id", user.id);
+
+  if (myPosts && myPosts.length > 0) {
+    const postIds = myPosts.map((p: any) => p.id);
+    const { data: heartsReceived } = await supabase
+      .from("wall_hearts")
+      .select("created_at, user_id, profiles:user_id(nickname)")
+      .in("post_id", postIds)
+      .gte("created_at", todayStart);
+
+    (heartsReceived || []).forEach((h: any) => {
+      logs.push({
+        type: "heart_received",
+        title: `${(h.profiles as any)?.nickname || "누군가"}에게 하트를 받았어요`,
+        gold: 10,
+        time: h.created_at,
+      });
+    });
+  }
+
+  // 시간순 정렬 (최신 먼저)
+  logs.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+
+  return logs;
+}
+
+// ── 일일 목표 달성 담벼락 게시 ──
+export async function postDailyGoalWall() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  await supabase.rpc("post_daily_goal_wall", { p_user_id: user.id });
+}
+
 // ── 오늘 돌봄 현황 ──
 export async function getTodayCare(): Promise<CareStatus> {
   const supabase = await createClient();
