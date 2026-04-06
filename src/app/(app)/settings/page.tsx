@@ -33,8 +33,9 @@ export default function SettingsPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [inviteCodes, setInviteCodes] = useState<InviteCode[]>([]);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
-  const [showTitleModal, setShowTitleModal] = useState(false);
+  const [showTitles, setShowTitles] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
+  const [showCodes, setShowCodes] = useState(false);
   const [loading, setLoading] = useState(true);
   const { show: showToast } = useToast();
 
@@ -61,9 +62,15 @@ export default function SettingsPage() {
     setClaimableKeys(new Set(checkResult?.claimable || []));
 
     const unlockedSet = new Set((userAchievements || []).map((ua: any) => ua.achievement_id));
-    setAchievements(
-      (allAchievements || []).map((a: any) => ({ ...a, unlocked: unlockedSet.has(a.id) }))
-    );
+    const claimable = new Set(checkResult?.claimable || []);
+    const mapped = (allAchievements || []).map((a: any) => ({ ...a, unlocked: unlockedSet.has(a.id) }));
+    // 달성 가능 > 달성 완료 > 미달성
+    mapped.sort((a: Achievement, b: Achievement) => {
+      const aOrder = claimable.has(a.key) ? 0 : a.unlocked ? 1 : 2;
+      const bOrder = claimable.has(b.key) ? 0 : b.unlocked ? 1 : 2;
+      return aOrder - bOrder;
+    });
+    setAchievements(mapped);
     setLoading(false);
   }, []);
 
@@ -105,7 +112,6 @@ export default function SettingsPage() {
 
     await supabase.rpc("set_title", { p_user_id: user.id, p_title: title });
     setProfile((p) => p ? { ...p, title } : p);
-    setShowTitleModal(false);
     showToast(title ? `타이틀 "${title}" 적용!` : "타이틀 해제!");
   };
 
@@ -147,20 +153,46 @@ export default function SettingsPage() {
 
       {/* 타이틀 */}
       <div className="pixel-panel p-4">
-        <div className="flex items-center justify-between">
+        <button
+          onClick={() => setShowTitles(!showTitles)}
+          className="flex w-full items-center justify-between"
+        >
           <h2 className="font-pixel text-sm text-theme">타이틀</h2>
-          <button
-            onClick={() => setShowTitleModal(true)}
-            className="pixel-button px-3 py-1 font-pixel text-xs text-theme-muted"
-          >
-            변경
-          </button>
-        </div>
-        <div className="mt-3 flex items-center justify-center py-2">
-          <span className="font-pixel text-sm" style={{ color: "var(--theme-accent)" }}>
-            {profile?.title || "없음"}
-          </span>
-        </div>
+          <div className="flex items-center gap-2">
+            <span className="font-pixel text-xs" style={{ color: "var(--theme-accent)" }}>
+              {profile?.title || "없음"}
+            </span>
+            <span className="font-pixel text-xs text-theme-muted">{showTitles ? "▲" : "▼"}</span>
+          </div>
+        </button>
+        {showTitles && (
+          <div className="mt-3 space-y-2">
+            <button
+              onClick={() => handleSetTitle(null)}
+              className="pixel-input flex w-full items-center justify-between p-2"
+            >
+              <span className="font-pixel text-xs text-theme-muted">없음</span>
+              {!profile?.title && <span className="font-pixel text-xs text-theme">✓</span>}
+            </button>
+            {titleAchievements.map((a) => (
+              <button
+                key={a.id}
+                onClick={() => handleSetTitle(a.title_text || a.key)}
+                className="pixel-input flex w-full items-center justify-between p-2"
+              >
+                <span className="font-pixel text-xs" style={{ color: "var(--theme-accent)" }}>
+                  {a.title_text || a.key}
+                </span>
+                <span className="font-pixel text-xs text-theme">
+                  {profile?.title === (a.title_text || a.key) ? "✓" : "변경"}
+                </span>
+              </button>
+            ))}
+            {titleAchievements.length === 0 && (
+              <p className="font-pixel text-xs text-theme-muted text-center py-2">업적을 달성하면 타이틀을 얻을 수 있어요</p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 업적 */}
@@ -210,31 +242,39 @@ export default function SettingsPage() {
 
       {/* 초대코드 */}
       <div className="pixel-panel p-4">
-        <div className="flex items-center justify-between">
+        <button
+          onClick={() => setShowCodes(!showCodes)}
+          className="flex w-full items-center justify-between"
+        >
           <h2 className="font-pixel text-sm text-theme">초대코드</h2>
-          <span className="font-pixel text-xs text-theme-muted">
-            사용 가능 {availableCodes.length}장
-          </span>
-        </div>
-        <div className="mt-3 space-y-2">
-          {availableCodes.length === 0 && usedCodes.length === 0 && (
-            <p className="font-pixel text-xs text-theme-muted text-center py-2">초대코드가 없어요</p>
-          )}
-          {availableCodes.map((c) => (
-            <div key={c.code} className="pixel-input flex items-center justify-between p-2">
-              <span className="font-pixel text-xs text-theme">{c.code}</span>
-              <button
-                onClick={() => handleCopyCode(c.code)}
-                className="pixel-button px-2 py-1 font-pixel text-xs text-theme-muted"
-              >
-                복사
-              </button>
-            </div>
-          ))}
-          {usedCodes.length > 0 && (
-            <p className="font-pixel text-xs text-theme-muted mt-2">사용됨 {usedCodes.length}장</p>
-          )}
-        </div>
+          <div className="flex items-center gap-2">
+            <span className="font-pixel text-xs text-theme-muted">
+              {availableCodes.length}장
+            </span>
+            <span className="font-pixel text-xs text-theme-muted">{showCodes ? "▲" : "▼"}</span>
+          </div>
+        </button>
+        {showCodes && (
+          <div className="mt-3 space-y-2">
+            {availableCodes.length === 0 && usedCodes.length === 0 && (
+              <p className="font-pixel text-xs text-theme-muted text-center py-2">초대코드가 없어요</p>
+            )}
+            {availableCodes.map((c) => (
+              <div key={c.code} className="pixel-input flex items-center justify-between p-2">
+                <span className="font-pixel text-xs text-theme">{c.code}</span>
+                <button
+                  onClick={() => handleCopyCode(c.code)}
+                  className="pixel-button px-2 py-1 font-pixel text-xs text-theme-muted"
+                >
+                  복사
+                </button>
+              </div>
+            ))}
+            {usedCodes.length > 0 && (
+              <p className="font-pixel text-xs text-theme-muted mt-2">사용됨 {usedCodes.length}장</p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 통계 */}
@@ -255,44 +295,6 @@ export default function SettingsPage() {
         로그아웃
       </button>
 
-      {/* 타이틀 변경 모달 */}
-      {showTitleModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6"
-          onClick={() => setShowTitleModal(false)}>
-          <div className="pixel-panel w-full max-w-sm p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-pixel text-sm text-theme text-center">타이틀 변경</h3>
-            <div className="space-y-2 max-h-60 overflow-y-auto scrollbar-hide">
-              <button
-                onClick={() => handleSetTitle(null)}
-                className="pixel-input flex w-full items-center justify-between p-2"
-              >
-                <span className="font-pixel text-xs text-theme-muted">없음</span>
-                {!profile?.title && <span className="font-pixel text-xs text-theme">✓</span>}
-              </button>
-              {titleAchievements.map((a) => (
-                <button
-                  key={a.id}
-                  onClick={() => handleSetTitle(a.title_text || a.key)}
-                  className="pixel-input flex w-full items-center justify-between p-2"
-                >
-                  <span className="font-pixel text-xs" style={{ color: "var(--theme-accent)" }}>
-                    {a.title_text || a.key}
-                  </span>
-                  {profile?.title === (a.title_text || a.key) && (
-                    <span className="font-pixel text-xs text-theme">✓</span>
-                  )}
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={() => setShowTitleModal(false)}
-              className="pixel-button w-full py-2 font-pixel text-xs text-theme-muted"
-            >
-              닫기
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

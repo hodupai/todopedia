@@ -9,12 +9,16 @@ const ThemeContext = createContext<{
   setThemeId: (id: string) => void;
   bgKey: string;
   setBgKey: (key: string) => void;
+  fontFamily: string;
+  setFontFamily: (f: string) => void;
   refreshBg: () => void;
 }>({
   theme: THEMES[DEFAULT_THEME],
   setThemeId: () => {},
   bgKey: "pixel_forest1",
   setBgKey: () => {},
+  fontFamily: '"DungGeunMo", monospace',
+  setFontFamily: () => {},
   refreshBg: () => {},
 });
 
@@ -49,6 +53,7 @@ function applyThemeVars(theme: ThemeConfig) {
 export default function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [themeId, setThemeId] = useState(DEFAULT_THEME);
   const [bgKey, setBgKey] = useState("pixel_forest1");
+  const [fontFamily, setFontFamily] = useState('"DungGeunMo", monospace');
   const theme = THEMES[themeId] ?? THEMES[DEFAULT_THEME];
 
   const refreshBg = useCallback(async () => {
@@ -58,12 +63,37 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
 
     const { data } = await supabase
       .from("profiles")
-      .select("active_bg, active_theme")
+      .select("active_bg, active_theme, active_font")
       .eq("id", user.id)
       .single();
 
     if (data?.active_bg) setBgKey(data.active_bg);
     if (data?.active_theme && THEMES[data.active_theme]) setThemeId(data.active_theme);
+
+    // 폰트 로드
+    if (data?.active_font && data.active_font !== "dunggeunmo") {
+      const { data: fontData } = await supabase
+        .from("shop_fonts")
+        .select("font_family, import_url, font_face_css")
+        .eq("font_key", data.active_font)
+        .single();
+
+      if (fontData) {
+        // CSS import 또는 font-face 동적 추가
+        if (fontData.import_url) {
+          const link = document.createElement("link");
+          link.rel = "stylesheet";
+          link.href = fontData.import_url;
+          document.head.appendChild(link);
+        }
+        if (fontData.font_face_css) {
+          const style = document.createElement("style");
+          style.textContent = fontData.font_face_css;
+          document.head.appendChild(style);
+        }
+        setFontFamily(fontData.font_family);
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -71,11 +101,15 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
   }, [theme]);
 
   useEffect(() => {
+    document.documentElement.style.setProperty("--font-pixel", fontFamily);
+  }, [fontFamily]);
+
+  useEffect(() => {
     refreshBg();
   }, [refreshBg]);
 
   return (
-    <ThemeContext.Provider value={{ theme, setThemeId, bgKey, setBgKey, refreshBg }}>
+    <ThemeContext.Provider value={{ theme, setThemeId, bgKey, setBgKey, fontFamily, setFontFamily, refreshBg }}>
       {children}
     </ThemeContext.Provider>
   );

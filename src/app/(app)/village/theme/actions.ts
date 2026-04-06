@@ -54,6 +54,59 @@ export async function setActiveTheme(themeKey: string) {
   return { success: true };
 }
 
+// ── 폰트 ──
+export type ShopFont = {
+  id: number;
+  font_key: string;
+  name: string;
+  font_family: string;
+  import_url: string | null;
+  font_face_css: string | null;
+  price: number;
+  is_default: boolean;
+  owned: boolean;
+};
+
+export async function getFonts(): Promise<ShopFont[]> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+  const { data: fonts } = await supabase.from("shop_fonts").select("*").order("price");
+  const { data: owned } = await supabase.from("owned_fonts").select("font_id").eq("user_id", user.id);
+  const ownedSet = new Set((owned || []).map((o: any) => o.font_id));
+  return (fonts || []).map((f: any) => ({ ...f, owned: ownedSet.has(f.id) }));
+}
+
+export async function getActiveFont(): Promise<string> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return "dunggeunmo";
+  const { data } = await supabase.from("profiles").select("active_font").eq("id", user.id).single();
+  return data?.active_font || "dunggeunmo";
+}
+
+export async function buyFont(fontId: number) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "인증이 필요합니다." };
+  const { data, error } = await supabase.rpc("buy_font", { p_user_id: user.id, p_font_id: fontId });
+  if (error) {
+    if (error.message.includes("already_owned")) return { error: "이미 소유하고 있어요." };
+    if (error.message.includes("not_enough_gold")) return { error: "골드가 부족해요." };
+    return { error: "구매에 실패했습니다." };
+  }
+  return { success: true, data };
+}
+
+export async function setActiveFont(fontKey: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "인증이 필요합니다." };
+  const { error } = await supabase.rpc("set_active_font", { p_user_id: user.id, p_font_key: fontKey });
+  if (error) return { error: "적용에 실패했습니다." };
+  return { success: true };
+}
+
 export type ShopBackground = {
   id: number;
   name: string;

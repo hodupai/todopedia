@@ -2,8 +2,12 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { getBackgrounds, getActiveBg, buyBackground, setActiveBg, getThemes, getActiveTheme, buyTheme, setActiveTheme } from "./actions";
-import type { ShopBackground, ShopTheme } from "./actions";
+import {
+  getBackgrounds, getActiveBg, buyBackground, setActiveBg,
+  getThemes, getActiveTheme, buyTheme, setActiveTheme,
+  getFonts, getActiveFont, buyFont, setActiveFont,
+} from "./actions";
+import type { ShopBackground, ShopTheme, ShopFont } from "./actions";
 import { THEMES } from "@/lib/themes";
 import { useGold } from "@/components/GoldProvider";
 import { useToast } from "@/components/Toast";
@@ -37,11 +41,7 @@ export default function ThemeShopPage() {
 
       {tab === "배경화면" && <BackgroundTab />}
       {tab === "테마" && <ThemeTab />}
-      {tab === "폰트" && (
-        <div className="pixel-panel flex-1 flex items-center justify-center">
-          <p className="font-pixel text-sm text-theme-muted">준비 중이에요</p>
-        </div>
-      )}
+      {tab === "폰트" && <FontTab />}
     </div>
   );
 }
@@ -306,6 +306,137 @@ function ThemeTab() {
           </div>
         );
       })()}
+    </>
+  );
+}
+
+// ── 폰트 탭 ──
+function FontTab() {
+  const [fonts, setFonts] = useState<ShopFont[]>([]);
+  const [activeFontKey, setActiveFontKey] = useState("dunggeunmo");
+  const [selected, setSelected] = useState<ShopFont | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [buying, setBuying] = useState(false);
+  const { gold, refresh: refreshGold } = useGold();
+  const { show: showToast } = useToast();
+  const { setFontFamily, refreshBg } = useTheme();
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    const [f, active] = await Promise.all([getFonts(), getActiveFont()]);
+    setFonts(f);
+    setActiveFontKey(active);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const handleBuy = async (font: ShopFont) => {
+    if (gold < font.price) { showToast("골드가 부족해요!"); return; }
+    setBuying(true);
+    const r = await buyFont(font.id);
+    if (r.error) showToast(r.error);
+    else { showToast(`${font.name} 구매!`, `-${font.price}G`); refreshGold(); loadData(); }
+    setBuying(false);
+    setSelected(null);
+  };
+
+  const handleApply = async (font: ShopFont) => {
+    const r = await setActiveFont(font.font_key);
+    if (r.error) { showToast(r.error); return; }
+
+    // 폰트 CSS 동적 로드
+    if (font.import_url) {
+      const existing = document.querySelector(`link[href="${font.import_url}"]`);
+      if (!existing) {
+        const link = document.createElement("link");
+        link.rel = "stylesheet";
+        link.href = font.import_url;
+        document.head.appendChild(link);
+      }
+    }
+    if (font.font_face_css) {
+      const style = document.createElement("style");
+      style.textContent = font.font_face_css;
+      document.head.appendChild(style);
+    }
+
+    setFontFamily(font.font_family);
+    setActiveFontKey(font.font_key);
+    showToast(`${font.name} 폰트 적용!`);
+    setSelected(null);
+  };
+
+  if (loading) {
+    return <div className="flex justify-center py-8"><p className="font-pixel text-xs text-theme-muted">로딩 중...</p></div>;
+  }
+
+  return (
+    <>
+      <div className="pixel-panel flex-1 overflow-y-auto scrollbar-hide p-3">
+        <div className="space-y-3">
+          {fonts.map((font) => (
+            <button
+              key={font.id}
+              onClick={() => setSelected(font)}
+              className="pixel-input flex w-full items-center gap-3 p-3"
+            >
+              <div className="flex-1 text-left">
+                <p className="font-pixel text-sm text-theme">{font.name}</p>
+                <p className="text-xs text-theme-muted" style={{ fontFamily: font.font_family }}>
+                  가나다라 ABCD 1234
+                </p>
+                {activeFontKey === font.font_key && (
+                  <span className="font-pixel text-xs" style={{ color: "var(--theme-accent)" }}>적용중</span>
+                )}
+              </div>
+              <div className="shrink-0 text-right">
+                {font.owned ? (
+                  <span className="font-pixel text-xs text-theme-muted">보유</span>
+                ) : (
+                  <span className="font-pixel text-xs" style={{ color: "var(--theme-gold)" }}>{font.price}G</span>
+                )}
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {selected && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6"
+          onClick={() => setSelected(null)}>
+          <div className="pixel-panel w-full max-w-[320px] p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <p className="font-pixel text-sm text-theme text-center">{selected.name}</p>
+            <div className="pixel-input p-3">
+              <p className="text-sm text-theme" style={{ fontFamily: selected.font_family }}>
+                가나다라마바사 아자차카타파하
+              </p>
+              <p className="text-sm text-theme-muted mt-1" style={{ fontFamily: selected.font_family }}>
+                ABCDEFG abcdefg 0123456789
+              </p>
+            </div>
+
+            {selected.owned ? (
+              <div className="flex gap-2">
+                {activeFontKey === selected.font_key ? (
+                  <p className="flex-1 text-center font-pixel text-xs text-theme-muted py-2">현재 적용 중</p>
+                ) : (
+                  <button onClick={() => handleApply(selected)} className="pixel-button flex-1 py-2 font-pixel text-xs text-theme">적용</button>
+                )}
+                <button onClick={() => setSelected(null)} className="pixel-button flex-1 py-2 font-pixel text-xs text-theme-muted">닫기</button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <button onClick={() => handleBuy(selected)} disabled={buying}
+                  className="pixel-button flex-1 py-2 font-pixel text-xs text-theme">
+                  {buying ? "구매 중..." : `${selected.price}G 구매`}
+                </button>
+                <button onClick={() => setSelected(null)} className="pixel-button flex-1 py-2 font-pixel text-xs text-theme-muted">닫기</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 }
