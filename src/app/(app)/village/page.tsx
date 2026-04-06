@@ -78,7 +78,12 @@ export default function VillagePage() {
             {posts.map((post) => (
               <div key={post.id} className="pixel-input p-3">
                 <div className="flex items-center justify-between">
-                  <span className="font-pixel text-xs text-theme">{post.nickname}</span>
+                  <span className="font-pixel text-xs text-theme">
+                    {post.title && (
+                      <span style={{ color: "var(--theme-accent)" }}>{post.title} </span>
+                    )}
+                    {post.nickname}
+                  </span>
                   <span className="font-pixel text-[10px] text-theme-muted">{timeAgo(post.created_at)}</span>
                 </div>
                 <div className="mt-2">
@@ -105,7 +110,9 @@ export default function VillagePage() {
                     <p className="font-pixel text-xs text-theme">오늘의 목표를 달성했어요! 🎉</p>
                   )}
                   {post.type === "achievement" && (
-                    <p className="font-pixel text-xs text-theme">업적을 달성했어요! 🏆</p>
+                    <p className="font-pixel text-xs text-theme">
+                      🏆 업적 [{(post.content as any)?.achievement_name || "업적"}] 달성!
+                    </p>
                   )}
                 </div>
                 <div className="mt-2 flex items-center gap-2">
@@ -131,7 +138,7 @@ export default function VillagePage() {
           className="pixel-button flex flex-col items-center gap-1 py-3"
         >
           <span className="text-lg">🧸</span>
-          <span className="font-pixel text-[10px] text-theme">가디용품</span>
+          <span className="font-pixel text-[10px] text-theme">가디용품점</span>
         </button>
         <button
           onClick={() => router.push("/village/fortune")}
@@ -152,7 +159,7 @@ export default function VillagePage() {
           className="pixel-button flex flex-col items-center gap-1 py-3"
         >
           <span className="text-lg">⚔️</span>
-          <span className="font-pixel text-[10px] text-theme">파티관리</span>
+          <span className="font-pixel text-[10px] text-theme">파티관리소</span>
         </button>
       </div>
     </div>

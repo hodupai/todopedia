@@ -21,7 +21,7 @@ const RARITY_LABELS: Record<string, string> = {
   unique: "유니크",
 };
 
-const TABS = ["가디 도감", "아이템 도감"] as const;
+const TABS = ["가디언 도감", "아이템 도감"] as const;
 
 const ITEM_CATEGORIES = [
   { key: "food", label: "음식", icon: "🍞" },
@@ -31,7 +31,7 @@ const ITEM_CATEGORIES = [
 ] as const;
 
 export default function CollectionPage() {
-  const [tab, setTab] = useState<(typeof TABS)[number]>("가디 도감");
+  const [tab, setTab] = useState<(typeof TABS)[number]>("가디언 도감");
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
@@ -51,12 +51,12 @@ export default function CollectionPage() {
         ))}
       </div>
 
-      {tab === "가디 도감" ? <GuardianCollection /> : <ItemCollection />}
+      {tab === "가디언 도감" ? <GuardianCollection /> : <ItemCollection />}
     </div>
   );
 }
 
-// ── 가디 도감 ──
+// ── 가디언 도감 ──
 function GuardianCollection() {
   const [types, setTypes] = useState<GuardianType[]>([]);
   const [items, setItems] = useState<CollectionItem[]>([]);

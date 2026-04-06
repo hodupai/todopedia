@@ -6,6 +6,7 @@ export type WallPost = {
   id: string;
   user_id: string;
   nickname: string;
+  title: string | null;
   type: string;
   content: {
     guardian_name?: string;
