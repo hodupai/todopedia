@@ -1,6 +1,10 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+
 export default function VillagePage() {
+  const router = useRouter();
+
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
       {/* 담벼락 */}
@@ -16,17 +20,27 @@ export default function VillagePage() {
 
       {/* 상점 바로가기 */}
       <div className="grid grid-cols-3 gap-3">
-        <button className="pixel-button flex flex-col items-center gap-1 py-3">
-          <span className="text-xl">🎨</span>
-          <span className="font-pixel text-xs text-theme">테마샵</span>
-        </button>
-        <button className="pixel-button flex flex-col items-center gap-1 py-3">
+        <button
+          onClick={() => router.push("/village/shop")}
+          className="pixel-button flex flex-col items-center gap-1 py-3"
+        >
           <span className="text-xl">🧸</span>
           <span className="font-pixel text-xs text-theme">가디용품</span>
         </button>
-        <button className="pixel-button flex flex-col items-center gap-1 py-3">
-          <span className="text-xl">🧪</span>
-          <span className="font-pixel text-xs text-theme">마법용품</span>
+        <button
+          onClick={() => router.push("/village/fortune")}
+          className="pixel-button flex flex-col items-center gap-1 py-3"
+        >
+          <span className="text-xl">🔮</span>
+          <span className="font-pixel text-xs text-theme">점술관</span>
+        </button>
+        <button
+          className="pixel-button flex flex-col items-center gap-1 py-3"
+          style={{ opacity: 0.4 }}
+          disabled
+        >
+          <span className="text-xl">🎨</span>
+          <span className="font-pixel text-xs text-theme-muted">테마샵</span>
         </button>
       </div>
     </div>

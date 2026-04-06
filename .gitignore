@@ -41,6 +41,8 @@ yarn-error.log*
 .agents/
 .mcp.json
 skills-lock.json
+CLAUDE.md
+AGENTS.md
 
 # vercel
 .vercel
@@ -48,3 +50,5 @@ skills-lock.json
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+.vercel

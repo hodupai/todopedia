@@ -105,6 +105,80 @@
   animation: fade-in-out-down 2s ease-in-out forwards;
 }
 
+/* 텍스트 아웃라인 (레어도 등) */
+.text-outline {
+  text-shadow:
+    -1px -1px 0 var(--theme-bg),
+    1px -1px 0 var(--theme-bg),
+    -1px 1px 0 var(--theme-bg),
+    1px 1px 0 var(--theme-bg),
+    0 -1px 0 var(--theme-bg),
+    0 1px 0 var(--theme-bg),
+    -1px 0 0 var(--theme-bg),
+    1px 0 0 var(--theme-bg);
+}
+
+.text-outline-dark {
+  text-shadow:
+    -1px -1px 0 rgba(0,0,0,0.3),
+    1px -1px 0 rgba(0,0,0,0.3),
+    -1px 1px 0 rgba(0,0,0,0.3),
+    1px 1px 0 rgba(0,0,0,0.3);
+}
+
+/* 가디 알 애니메이션 */
+@keyframes egg-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.animate-egg-float {
+  animation: egg-float 2s ease-in-out infinite;
+}
+
+@keyframes egg-shake {
+  0%, 100% { transform: rotate(0deg); }
+  20% { transform: rotate(-5deg); }
+  40% { transform: rotate(5deg); }
+  60% { transform: rotate(-3deg); }
+  80% { transform: rotate(3deg); }
+}
+
+.animate-egg-shake {
+  animation: egg-shake 0.6s ease-in-out infinite;
+}
+
+@keyframes egg-crack {
+  0% { transform: scale(1) rotate(0deg); }
+  30% { transform: scale(1.1) rotate(-3deg); }
+  60% { transform: scale(1.1) rotate(3deg); }
+  80% { transform: scale(1.2) rotate(0deg); }
+  100% { transform: scale(0) rotate(0deg); opacity: 0; }
+}
+
+.animate-egg-crack {
+  animation: egg-crack 1.5s ease-in-out forwards;
+}
+
+@keyframes flash-pulse {
+  0% { transform: scale(0); opacity: 0; }
+  50% { transform: scale(1.5); opacity: 1; }
+  100% { transform: scale(3); opacity: 0; }
+}
+
+.animate-flash-pulse {
+  animation: flash-pulse 0.7s ease-out forwards;
+}
+
+@keyframes reveal-in {
+  0% { transform: scale(0.5); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-reveal-in {
+  animation: reveal-in 0.5s ease-out forwards;
+}
+
 /* number input 화살표 제거 */
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {

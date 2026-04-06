@@ -13,6 +13,7 @@ import {
   createTag,
   ensureDailyRecords,
 } from "./actions";
+import { getActiveGuardian, startGuardian } from "../guardian/actions";
 import { useGold } from "@/components/GoldProvider";
 import { useToast } from "@/components/Toast";
 
@@ -94,7 +95,7 @@ export default function TodoPage() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [records, setRecords] = useState<Record<string, DailyRecord>>({});
   const [dailyGoal, setDailyGoalState] = useState<number>(0);
-  const [showGoalModal, setShowGoalModal] = useState(false);
+  const [showGuardianStartModal, setShowGuardianStartModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editTodo, setEditTodo] = useState<Todo | null>(null);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -123,7 +124,12 @@ export default function TodoPage() {
 
     const goal = profile?.daily_goal || 0;
     setDailyGoalState(goal);
-    if (goal === 0) setShowGoalModal(true);
+
+    // 가디가 없으면 가디 시작 모달 표시 (일일 목표도 여기서 설정)
+    if (goal === 0) {
+      const guardian = await getActiveGuardian();
+      if (!guardian) setShowGuardianStartModal(true);
+    }
 
     setTodos(todosData || []);
     setTags(tagsData || []);
@@ -203,10 +209,10 @@ export default function TodoPage() {
     fetchData();
   };
 
-  const handleSetGoal = async (goal: number) => {
-    await setDailyGoal(goal);
+  const handleGuardianStarted = (goal: number) => {
     setDailyGoalState(goal);
-    setShowGoalModal(false);
+    setShowGuardianStartModal(false);
+    fetchData();
   };
 
   if (loading) {
@@ -327,7 +333,9 @@ export default function TodoPage() {
         </div>
       </div>
 
-      {showGoalModal && <GoalModal onSelect={handleSetGoal} />}
+      {showGuardianStartModal && (
+        <GuardianStartModal onStarted={handleGuardianStarted} />
+      )}
       {showCreateModal && (
         <CreateModal
           defaultType={tab === "습관" ? "habit" : "normal"}
@@ -574,28 +582,115 @@ function HabitItem({
   );
 }
 
-// ── 일일 목표 설정 모달 ──
-function GoalModal({ onSelect }: { onSelect: (g: number) => void }) {
+// ── 가디 시작 모달 (기간 + 일일 목표 선택) ──
+function GuardianStartModal({ onStarted }: { onStarted: (goal: number) => void }) {
+  const [step, setStep] = useState<"period" | "goal">("period");
+  const [period, setPeriod] = useState<number>(7);
+  const [goal, setGoal] = useState<number>(5);
+  const [submitting, setSubmitting] = useState(false);
+
+  const PERIODS = [
+    { value: 3, label: "3일", desc: "빠른 성장" },
+    { value: 7, label: "7일", desc: "균형잡힌" },
+    { value: 10, label: "10일", desc: "도전적인" },
+    { value: 15, label: "15일", desc: "장기 육성" },
+    { value: 30, label: "30일", desc: "최고 확률" },
+  ];
+
+  const handleConfirm = async () => {
+    setSubmitting(true);
+    const result = await startGuardian(period, goal);
+    if (result.error) {
+      setSubmitting(false);
+      return;
+    }
+    onStarted(goal);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6">
       <div className="pixel-panel w-full max-w-sm space-y-4 p-6">
-        <h2 className="font-pixel text-center text-base text-theme">
-          일일 목표를 선택하세요
-        </h2>
-        <p className="font-pixel text-center text-sm text-theme-muted">
-          하루에 완료할 투두 개수를 정해주세요
-        </p>
-        <div className="grid grid-cols-2 gap-3">
-          {[1, 5, 10, 20].map((g) => (
+        {step === "period" ? (
+          <>
+            <div className="flex flex-col items-center gap-2">
+              <img
+                src="/ui/icons/egg.png"
+                alt=""
+                className="pixel-art"
+                style={{ width: 32, height: 32 }}
+              />
+              <h2 className="font-pixel text-center text-base text-theme">
+                가디 육성을 시작하세요
+              </h2>
+              <p className="font-pixel text-center text-xs text-theme-muted">
+                육성 기간을 선택해주세요
+              </p>
+            </div>
+            <div className="space-y-2">
+              {PERIODS.map((p) => (
+                <button
+                  key={p.value}
+                  onClick={() => setPeriod(p.value)}
+                  className="pixel-button flex w-full items-center justify-between px-4 py-3 font-pixel text-sm"
+                  style={{
+                    opacity: period === p.value ? 1 : 0.5,
+                    color: "var(--theme-text)",
+                  }}
+                >
+                  <span>{p.label}</span>
+                  <span className="text-xs text-theme-muted">{p.desc}</span>
+                </button>
+              ))}
+            </div>
             <button
-              key={g}
-              onClick={() => onSelect(g)}
-              className="pixel-button py-3 font-pixel text-sm text-theme"
+              onClick={() => setStep("goal")}
+              className="pixel-button w-full py-3 font-pixel text-sm text-theme"
             >
-              {g}개
+              다음
             </button>
-          ))}
-        </div>
+          </>
+        ) : (
+          <>
+            <div className="flex flex-col items-center gap-2">
+              <h2 className="font-pixel text-center text-base text-theme">
+                일일 목표를 선택하세요
+              </h2>
+              <p className="font-pixel text-center text-xs text-theme-muted">
+                하루에 완료할 투두 개수를 정해주세요
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {[1, 5, 10, 20].map((g) => (
+                <button
+                  key={g}
+                  onClick={() => setGoal(g)}
+                  className="pixel-button py-3 font-pixel text-sm"
+                  style={{
+                    opacity: goal === g ? 1 : 0.5,
+                    color: "var(--theme-text)",
+                  }}
+                >
+                  {g}개
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setStep("period")}
+                className="pixel-button flex-1 py-3 font-pixel text-sm text-theme-muted"
+              >
+                이전
+              </button>
+              <button
+                onClick={handleConfirm}
+                disabled={submitting}
+                className="pixel-button flex-1 py-3 font-pixel text-sm text-theme"
+              >
+                {submitting ? "시작 중..." : "시작!"}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
