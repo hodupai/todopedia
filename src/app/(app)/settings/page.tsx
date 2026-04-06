@@ -278,8 +278,11 @@ export default function SettingsPage() {
       </div>
 
       {/* 통계 */}
-      <button className="pixel-button py-2.5 font-pixel text-xs text-theme-muted">
-        통계 (준비 중)
+      <button
+        onClick={() => router.push("/settings/stats")}
+        className="pixel-button py-2.5 font-pixel text-xs text-theme"
+      >
+        통계
       </button>
 
       {/* 개인정보 취급 방침 */}
