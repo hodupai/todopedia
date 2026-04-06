@@ -20,7 +20,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko" className="h-full">
-      <body className="flex h-full justify-center bg-[#1a1a2e] bg-cover bg-center bg-no-repeat antialiased" style={{ backgroundImage: "url('/ui/bg-forest.jpg')" }}>
+      <body className="flex h-full justify-center bg-[#1a1a2e] antialiased">
         <div className="flex h-full w-full max-w-[480px] flex-col">
           {children}
         </div>

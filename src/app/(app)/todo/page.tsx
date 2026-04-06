@@ -148,7 +148,13 @@ export default function TodoPage() {
   }, [fetchData]);
 
   const allTodoItems = todos.filter((t) => t.type !== "habit");
-  const todoItems = allTodoItems.filter((t) => !filterTagId || t.tag_id === filterTagId);
+  const todoItems = allTodoItems
+    .filter((t) => !filterTagId || t.tag_id === filterTagId)
+    .sort((a, b) => {
+      const aDone = records[a.id]?.is_completed ? 1 : 0;
+      const bDone = records[b.id]?.is_completed ? 1 : 0;
+      return aDone - bDone;
+    });
   const habitItems = todos.filter((t) => t.type === "habit").filter((t) => !filterTagId || t.tag_id === filterTagId);
   const completedCount = allTodoItems.filter(
     (t) => records[t.id]?.is_completed

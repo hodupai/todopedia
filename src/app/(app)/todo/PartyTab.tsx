@@ -92,7 +92,7 @@ function PartySection({ party, userId, onRefresh }: { party: Party; userId: stri
           <span className="font-pixel text-xs">{party.type === "individual" ? "👤" : "👥"}</span>
           <span className="font-pixel text-sm text-theme">{party.name}</span>
         </div>
-        <span className="font-pixel text-[10px] text-theme-muted">{expanded ? "▲" : "▼"}</span>
+        <span className="font-pixel text-xs text-theme-muted">{expanded ? "▲" : "▼"}</span>
       </button>
 
       {expanded && (
@@ -118,7 +118,7 @@ function PartySection({ party, userId, onRefresh }: { party: Party; userId: stri
                 <div className="flex-1 min-w-0">
                   <p className="font-pixel text-xs text-theme truncate">{todo.title}</p>
                   {party.type === "collaborative" && (
-                    <p className="font-pixel text-[10px] text-theme-muted">
+                    <p className="font-pixel text-xs text-theme-muted">
                       {todayCount}/{todo.target_count}
                     </p>
                   )}
@@ -148,10 +148,10 @@ function PartySection({ party, userId, onRefresh }: { party: Party; userId: stri
           {/* 활동 기록 */}
           {logs.length > 0 && (
             <div className="pt-2" style={{ borderTop: "1px dashed var(--theme-placeholder)" }}>
-              <p className="font-pixel text-[10px] text-theme-muted mb-1">기록</p>
+              <p className="font-pixel text-xs text-theme-muted mb-1">기록</p>
               <div className="space-y-1 max-h-32 overflow-y-auto scrollbar-hide">
                 {logs.map((log, i) => (
-                  <div key={i} className="flex justify-between font-pixel text-[10px]">
+                  <div key={i} className="flex justify-between font-pixel text-xs">
                     <span className="text-theme truncate flex-1">{log.content}</span>
                     <span className="text-theme-muted shrink-0 ml-2">{timeAgo(log.created_at)}</span>
                   </div>
@@ -190,13 +190,13 @@ function AddTodoForm({ party, onClose, onCreated }: { party: Party; onClose: () 
       />
       {party.type === "collaborative" && (
         <div className="flex items-center gap-2">
-          <span className="font-pixel text-[10px] text-theme-muted">목표</span>
+          <span className="font-pixel text-xs text-theme-muted">목표</span>
           <input
             type="number" min="1" value={targetCount}
             onChange={(e) => setTargetCount(Math.max(1, Number(e.target.value)))}
             className="pixel-input w-16 bg-transparent text-center font-pixel text-xs text-theme focus:outline-none"
           />
-          <span className="font-pixel text-[10px] text-theme-muted">회</span>
+          <span className="font-pixel text-xs text-theme-muted">회</span>
         </div>
       )}
       <div className="flex gap-1">

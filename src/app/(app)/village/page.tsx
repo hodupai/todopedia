@@ -141,12 +141,11 @@ export default function VillagePage() {
           <span className="font-pixel text-[10px] text-theme">점술관</span>
         </button>
         <button
+          onClick={() => router.push("/village/theme")}
           className="pixel-button flex flex-col items-center gap-1 py-3"
-          style={{ opacity: 0.4 }}
-          disabled
         >
           <span className="text-lg">🎨</span>
-          <span className="font-pixel text-[10px] text-theme-muted">테마샵</span>
+          <span className="font-pixel text-[10px] text-theme">테마샵</span>
         </button>
         <button
           onClick={() => router.push("/village/party")}

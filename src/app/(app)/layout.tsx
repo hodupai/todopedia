@@ -3,6 +3,7 @@ import BottomNav from "@/components/BottomNav";
 import ThemeProvider from "@/components/ThemeProvider";
 import GoldProvider from "@/components/GoldProvider";
 import ToastProvider from "@/components/Toast";
+import BgImage from "@/components/BgImage";
 
 export default function AppLayout({
   children,
@@ -13,7 +14,8 @@ export default function AppLayout({
     <ThemeProvider>
       <GoldProvider>
         <ToastProvider>
-          <div className="pixel-panel flex flex-1 flex-col overflow-hidden">
+          <div className="pixel-panel relative flex flex-1 flex-col overflow-hidden">
+            <BgImage />
             <Header />
             <main className="flex flex-1 flex-col overflow-y-auto scrollbar-hide" style={{ backgroundColor: "var(--theme-bg-translucent)" }}>
               {children}

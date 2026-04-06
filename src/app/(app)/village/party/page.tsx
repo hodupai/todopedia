@@ -44,7 +44,7 @@ export default function PartyPage() {
               <div key={inv.party_id} className="pixel-input flex items-center justify-between p-2 mb-1">
                 <div>
                   <p className="font-pixel text-xs text-theme">{inv.party_name}</p>
-                  <p className="font-pixel text-[10px] text-theme-muted">
+                  <p className="font-pixel text-xs text-theme-muted">
                     {inv.leader_nickname} · {inv.party_type === "individual" ? "각자" : "다같이"}
                   </p>
                 </div>
@@ -145,14 +145,14 @@ function PartyCard({ party, onRefresh }: { party: Party; onRefresh: () => void }
         <div className="flex items-center gap-2">
           <span className="font-pixel text-xs">{party.type === "individual" ? "👤" : "👥"}</span>
           <span className="font-pixel text-sm text-theme">{party.name}</span>
-          <span className="font-pixel text-[10px] text-theme-muted">{party.members.filter(m => m.status === 'active').length}명</span>
+          <span className="font-pixel text-xs text-theme-muted">{party.members.filter(m => m.status === 'active').length}명</span>
         </div>
-        <span className="font-pixel text-[10px] text-theme-muted">{expanded ? "▲" : "▼"}</span>
+        <span className="font-pixel text-xs text-theme-muted">{expanded ? "▲" : "▼"}</span>
       </button>
 
       {expanded && (
         <div className="mt-3 space-y-3">
-          <p className="font-pixel text-[10px] text-theme-muted">
+          <p className="font-pixel text-xs text-theme-muted">
             {party.type === "individual" ? "각자 파티" : "다같이 파티"}
           </p>
 
@@ -166,7 +166,7 @@ function PartyCard({ party, onRefresh }: { party: Party; onRefresh: () => void }
                 {m.user_id !== party.leader_id && (
                   <button
                     onClick={() => handleKick(m.user_id, m.nickname)}
-                    className="font-pixel text-[10px] text-theme-muted"
+                    className="font-pixel text-xs text-theme-muted"
                   >추방</button>
                 )}
               </div>
@@ -199,8 +199,8 @@ function PartyCard({ party, onRefresh }: { party: Party; onRefresh: () => void }
 
           {/* 탈퇴/삭제 */}
           <div className="flex gap-4">
-            <button onClick={handleLeave} className="font-pixel text-[10px] text-theme-muted">파티 탈퇴</button>
-            <button onClick={() => setShowDeleteConfirm(true)} className="font-pixel text-[10px]" style={{ color: "#c0392b" }}>파티 삭제</button>
+            <button onClick={handleLeave} className="font-pixel text-xs text-theme-muted">파티 탈퇴</button>
+            <button onClick={() => setShowDeleteConfirm(true)} className="font-pixel text-xs" style={{ color: "#c0392b" }}>파티 삭제</button>
           </div>
 
           {showDeleteConfirm && (
@@ -261,7 +261,7 @@ function CreatePartyModal({ onClose, onCreated }: { onClose: () => void; onCreat
             </button>
           ))}
         </div>
-        <p className="font-pixel text-[10px] text-theme-muted text-center">
+        <p className="font-pixel text-xs text-theme-muted text-center">
           {type === "individual" ? "각자 할일을 만들고 각자 완료" : "파티장이 할일을 만들고 다같이 힘을 모아 완료"}
         </p>
         <div className="flex gap-2">
