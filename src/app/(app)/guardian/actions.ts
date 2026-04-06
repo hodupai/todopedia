@@ -182,7 +182,26 @@ export async function getTodayActivity(): Promise<ActivityLog[]> {
     });
   });
 
-  // 3. 하트 준 기록
+  // 3. 파티 투두 완료
+  const { data: partyRecs } = await supabase
+    .from("party_daily_records")
+    .select("is_completed, gold_earned, created_at, party_todos(title, party_id, parties(name))")
+    .eq("user_id", user.id)
+    .eq("record_date", today)
+    .eq("is_completed", true);
+
+  (partyRecs || []).forEach((r: any) => {
+    const partyName = (r.party_todos?.parties as any)?.name || "파티";
+    const todoTitle = r.party_todos?.title || "투두";
+    logs.push({
+      type: "todo",
+      title: `[${partyName}] ${todoTitle}`,
+      gold: r.gold_earned || 0,
+      time: r.created_at,
+    });
+  });
+
+  // 4. 하트 준 기록
   const { data: heartsGiven } = await supabase
     .from("wall_hearts")
     .select("created_at, wall_posts(user_id, profiles:user_id(nickname))")
