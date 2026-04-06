@@ -269,15 +269,18 @@ function ItemCollection() {
                 <button
                   key={item.id}
                   onClick={() => collected ? setSelectedItem(item) : undefined}
-                  className="pixel-input flex aspect-square items-center justify-center"
+                  className="pixel-input flex flex-col items-center justify-center gap-0.5 p-1"
                   style={{ opacity: collected ? 1 : 0.3 }}
                 >
                   <img
                     src={`/ui/items/${item.asset_key}.png`}
                     alt={collected ? item.name : "???"}
                     className="pixel-art"
-                    style={{ width: 28, height: 28 }}
+                    style={{ width: 24, height: 24 }}
                   />
+                  <span className="font-pixel text-[8px] text-theme leading-tight truncate w-full text-center">
+                    {collected ? item.name : "???"}
+                  </span>
                 </button>
               );
             })}
