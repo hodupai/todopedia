@@ -107,31 +107,40 @@ function PartySection({ party, userId, onRefresh }: { party: Party; userId: stri
           {todos.length === 0 && (
             <p className="font-pixel text-xs text-theme-muted text-center py-2">투두가 없어요</p>
           )}
-          {todos.map((todo) => {
-            const recs = records[todo.id] || [];
-            const todayCount = recs.length;
-            const myDone = recs.length > 0;
+          {(() => {
+            const nicknameById = new Map(party.members.map((m) => [m.user_id, m.nickname]));
+            return todos.map((todo) => {
+              const recs = records[todo.id] || [];
+              const todayCount = recs.length;
+              const myDone = recs.length > 0;
+              const creatorNickname = nicknameById.get(todo.created_by);
 
-            return (
-              <div key={todo.id} className="pixel-input flex items-center gap-2 p-2">
-                <button
-                  onClick={() => !myDone && handleComplete(todo.id)}
-                  className="shrink-0 font-pixel text-sm"
-                  style={{ opacity: myDone ? 0.4 : 1 }}
-                >
-                  {myDone ? "✅" : "⬜"}
-                </button>
-                <div className="flex-1 min-w-0">
-                  <p className="font-pixel text-xs text-theme truncate">{todo.title}</p>
-                  {party.type === "collaborative" && (
-                    <p className="font-pixel text-xs text-theme-muted">
-                      {todayCount}/{todo.target_count}
-                    </p>
-                  )}
+              return (
+                <div key={todo.id} className="pixel-input flex items-center gap-2 p-2">
+                  <button
+                    onClick={() => !myDone && handleComplete(todo.id)}
+                    className="shrink-0 font-pixel text-sm"
+                    style={{ opacity: myDone ? 0.4 : 1 }}
+                  >
+                    {myDone ? "✅" : "⬜"}
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    {party.type === "individual" && creatorNickname && (
+                      <p className="font-pixel text-[10px] text-theme-muted truncate">
+                        {creatorNickname}
+                      </p>
+                    )}
+                    <p className="font-pixel text-xs text-theme truncate">{todo.title}</p>
+                    {party.type === "collaborative" && (
+                      <p className="font-pixel text-xs text-theme-muted">
+                        {todayCount}/{todo.target_count}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            });
+          })()}
 
           {/* 투두 추가: 각자=전원, 다같이=파티장만 */}
           {(party.type === "individual" || party.leader_id === userId) && (
