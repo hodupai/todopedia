@@ -100,7 +100,7 @@ function BackgroundTab() {
             >
               <div className="relative h-full w-full">
                 <img
-                  src={`/ui/${bg.asset_key}.jpg`}
+                  src={`/ui/${bg.asset_key}.webp`}
                   alt={bg.name}
                   className="h-full w-full object-cover"
                 />
@@ -133,7 +133,7 @@ function BackgroundTab() {
             {/* 미리보기 */}
             <div className="pixel-input overflow-hidden" style={{ aspectRatio: "16/9" }}>
               <img
-                src={`/ui/${selected.asset_key}.jpg`}
+                src={`/ui/${selected.asset_key}.webp`}
                 alt={selected.name}
                 className="h-full w-full object-cover"
               />

@@ -8,7 +8,7 @@ export default function LoginPage() {
   const [state, formAction, pending] = useActionState(login, null);
 
   return (
-    <div className="flex min-h-full items-center justify-center bg-cover bg-center bg-no-repeat px-6" style={{ backgroundImage: "url('/ui/bg-forest.jpg')" }}>
+    <div className="flex min-h-full items-center justify-center bg-cover bg-center bg-no-repeat px-6" style={{ backgroundImage: "url('/ui/bg-forest.webp')" }}>
       <div className="pixel-panel w-full max-w-sm space-y-6 p-8">
         {/* 타이틀 배너 */}
         <div className="flex flex-col items-center gap-3">
