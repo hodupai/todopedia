@@ -230,6 +230,17 @@ export default function SettingsClient({ initial }: { initial: SettingsPageData 
         통계
       </button>
 
+      {/* 관리자 페이지 (어드민에게만 노출) */}
+      {initial.isAdmin && (
+        <button
+          onClick={() => router.push("/admin")}
+          className="pixel-button py-2.5 font-pixel text-xs text-theme"
+          style={{ color: "var(--theme-accent)" }}
+        >
+          🔧 관리자 페이지
+        </button>
+      )}
+
       {/* 건의/버그 제보 */}
       <button
         onClick={() => setShowFeedback(true)}

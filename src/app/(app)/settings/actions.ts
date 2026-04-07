@@ -31,13 +31,14 @@ export type SettingsPageData = {
   inviteCodes: SettingsInviteCode[];
   achievements: SettingsAchievement[];
   claimableKeys: string[];
+  isAdmin: boolean;
 };
 
 export async function getSettingsPageData(): Promise<SettingsPageData> {
   const supabase = await createClient();
   const user = await getUserFromSession(supabase);
   if (!user) {
-    return { profile: null, inviteCodes: [], achievements: [], claimableKeys: [] };
+    return { profile: null, inviteCodes: [], achievements: [], claimableKeys: [], isAdmin: false };
   }
 
   const [
@@ -46,12 +47,14 @@ export async function getSettingsPageData(): Promise<SettingsPageData> {
     { data: codes },
     { data: allAchievements },
     { data: userAchievements },
+    { data: adminRow },
   ] = await Promise.all([
     supabase.rpc("check_achievements", { p_user_id: user.id }),
     supabase.from("profiles").select("username, nickname, title, created_at").eq("id", user.id).single(),
     supabase.from("invite_codes").select("code, used_by").eq("owner_id", user.id),
     supabase.from("achievements").select("*").order("sort_order"),
     supabase.from("user_achievements").select("achievement_id").eq("user_id", user.id),
+    supabase.from("admin_users").select("user_id").eq("user_id", user.id).maybeSingle(),
   ]);
 
   const claimableKeys: string[] = checkResult?.claimable || [];
@@ -71,6 +74,7 @@ export async function getSettingsPageData(): Promise<SettingsPageData> {
     inviteCodes: codes || [],
     achievements,
     claimableKeys,
+    isAdmin: !!adminRow,
   };
 }
 
