@@ -244,18 +244,20 @@ export async function getTodoPageData() {
   const supabase = await createClient();
   const user = await getUserFromSession(supabase);
   if (!user) {
-    return { dailyGoal: 0, todos: [], records: [], tags: [], hasGuardian: true, needsDailyGoalPrompt: false };
+    return { dailyGoal: 0, todos: [], records: [], tags: [], hasGuardian: true, needsDailyGoalPrompt: false, lastActiveDate: null };
   }
 
   const today = new Date().toISOString().split("T")[0];
 
-  const [{ data: profile }, { data: todosData }, { data: recordsData }, { data: tagsData }] =
+  const [{ data: profile }, { data: todosData }, { data: recordsData }, { data: tagsData }, { data: lastRecord }] =
     await Promise.all([
       supabase.from("profiles").select("daily_goal, last_goal_date").eq("id", user.id).single(),
       // archived_at: null이면 활성, 미래(=다음 KST 자정)면 오늘 하루는 보임
       supabase.from("todos").select("*, tags(name, color)").eq("user_id", user.id).or(`archived_at.is.null,archived_at.gt.${new Date().toISOString()}`).order("is_important", { ascending: false }).order("created_at", { ascending: true }),
       supabase.from("daily_records").select("todo_id, is_completed, current_count").eq("user_id", user.id).eq("record_date", today),
       supabase.from("tags").select("id, name, color").eq("user_id", user.id).order("created_at"),
+      // 가장 최근에 활동한 날짜 (오늘 제외)
+      supabase.from("daily_records").select("record_date").eq("user_id", user.id).lt("record_date", today).order("record_date", { ascending: false }).limit(1).maybeSingle(),
     ]);
 
   const dailyGoal = profile?.daily_goal || 0;
@@ -271,8 +273,6 @@ export async function getTodoPageData() {
     hasGuardian = !!guardian;
   }
 
-  // 오늘 첫 접속이면(또는 한 번도 설정 안 했으면) 일일 목표 모달 prompt
-  // 단, 가디언 시작 모달이 뜰 조건(dailyGoal=0 && !hasGuardian)이면 그게 우선이므로 이 prompt는 false
   const needsDailyGoalPrompt =
     dailyGoal > 0 && lastGoalDate !== today && !(dailyGoal === 0 && !hasGuardian);
 
@@ -283,7 +283,85 @@ export async function getTodoPageData() {
     tags: tagsData || [],
     hasGuardian,
     needsDailyGoalPrompt,
+    lastActiveDate: lastRecord?.record_date || null,
   };
+}
+
+// ── 최근 완료한 일회성 투두 (지난 7일) ──
+export type ArchivedTodoRow = {
+  id: string;
+  title: string;
+  type: "normal" | "loop";
+  completed_date: string | null;
+};
+
+export async function getRecentArchivedTodos(): Promise<ArchivedTodoRow[]> {
+  const supabase = await createClient();
+  const user = await getUserFromSession(supabase);
+  if (!user) return [];
+
+  // archived_at이 있는(=완료된 일회성) 투두 중 최근 7일 archived_at만
+  const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+  const { data: todos } = await supabase
+    .from("todos")
+    .select("id, title, type")
+    .eq("user_id", user.id)
+    .not("archived_at", "is", null)
+    .gte("archived_at", sevenDaysAgo)
+    .order("archived_at", { ascending: false })
+    .limit(50);
+
+  if (!todos || todos.length === 0) return [];
+
+  // 각 투두의 가장 최근 완료된 daily_record 날짜 매핑
+  const ids = todos.map((t) => t.id);
+  const { data: records } = await supabase
+    .from("daily_records")
+    .select("todo_id, record_date")
+    .in("todo_id", ids)
+    .eq("is_completed", true)
+    .order("record_date", { ascending: false });
+
+  const completedMap = new Map<string, string>();
+  (records || []).forEach((r: { todo_id: string; record_date: string }) => {
+    if (!completedMap.has(r.todo_id)) completedMap.set(r.todo_id, r.record_date);
+  });
+
+  return todos.map((t) => ({
+    id: t.id,
+    title: t.title,
+    type: t.type,
+    completed_date: completedMap.get(t.id) || null,
+  }));
+}
+
+// ── 완료된 일회성 투두 되돌리기 ──
+export async function restoreArchivedTodo(todoId: string) {
+  const supabase = await createClient();
+  const user = await getUserFromSession(supabase);
+  if (!user) return { error: "인증이 필요합니다." };
+
+  // archived_at 해제 + 오늘의 daily_record를 미완료로 (있으면)
+  const { error } = await supabase
+    .from("todos")
+    .update({ archived_at: null })
+    .eq("id", todoId)
+    .eq("user_id", user.id);
+
+  if (error) return { error: "되돌리기에 실패했습니다." };
+
+  // 오늘 daily_record가 있으면 미완료로 (골드 회수는 안 함 — 어드민 작업이 아니라 실수 복구이므로)
+  const today = new Date().toISOString().split("T")[0];
+  await supabase
+    .from("daily_records")
+    .update({ is_completed: false, current_count: 0 })
+    .eq("todo_id", todoId)
+    .eq("user_id", user.id)
+    .eq("record_date", today);
+
+  revalidatePath("/todo");
+  revalidatePath("/settings/stats");
+  return { success: true };
 }
 
 // ── 일일 목표 설정 ──

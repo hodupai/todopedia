@@ -100,6 +100,35 @@ export async function setTitle(title: string | null) {
   return { success: true };
 }
 
+// ── 본인 회원 탈퇴 ──
+// 사용자가 자신의 username을 정확히 입력해야 진행 (실수 방지).
+export async function deleteOwnAccount(confirmUsername: string) {
+  const supabase = await createClient();
+  const user = await getUserFromSession(supabase);
+  if (!user) return { error: "인증이 필요합니다." };
+
+  // 본인 username 확인
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("username")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile) return { error: "프로필을 찾을 수 없습니다." };
+  if (profile.username !== confirmUsername.trim()) {
+    return { error: "아이디가 일치하지 않습니다." };
+  }
+
+  // service_role로 auth.users 삭제 → CASCADE로 profiles 등 전부 정리
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const adminSb = createAdminClient();
+  const { error } = await adminSb.auth.admin.deleteUser(user.id);
+  if (error) return { error: "탈퇴 처리에 실패했습니다." };
+
+  // 클라이언트 측에서 signOut + redirect를 수행할 것
+  return { success: true };
+}
+
 // ── 피드백 제출 ──
 export async function submitFeedback(input: {
   category: "bug" | "suggestion" | "other";

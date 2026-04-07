@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { getMonthlyStats } from "./actions";
 import type { DayStat, OverallStats } from "./actions";
+import { restoreArchivedTodo, type ArchivedTodoRow } from "../../todo/actions";
+import { useToast } from "@/components/Toast";
 
 const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -12,20 +14,39 @@ export default function StatsClient({
   initialMonth,
   initialMonthStats,
   initialOverall,
+  initialArchivedTodos,
 }: {
   initialYear: number;
   initialMonth: number;
   initialMonthStats: DayStat[];
   initialOverall: OverallStats | null;
+  initialArchivedTodos: ArchivedTodoRow[];
 }) {
   const router = useRouter();
+  const { show: showToast } = useToast();
   const [year, setYear] = useState(initialYear);
   const [month, setMonth] = useState(initialMonth);
   const [monthStats, setMonthStats] = useState<DayStat[]>(initialMonthStats);
   const [overall] = useState<OverallStats | null>(initialOverall);
   const [selectedDay, setSelectedDay] = useState<DayStat | null>(null);
   const [loading, setLoading] = useState(false);
+  const [archivedTodos, setArchivedTodos] = useState<ArchivedTodoRow[]>(initialArchivedTodos);
+  const [showArchived, setShowArchived] = useState(false);
+  const [restorePending, startRestore] = useTransition();
   const isFirstRender = useRef(true);
+
+  const handleRestore = (id: string) => {
+    if (!confirm("이 투두를 다시 활성화하시겠습니까? 오늘의 완료 표시가 해제됩니다.")) return;
+    startRestore(async () => {
+      const r = await restoreArchivedTodo(id);
+      if (r.error) {
+        showToast(r.error);
+        return;
+      }
+      setArchivedTodos((prev) => prev.filter((t) => t.id !== id));
+      showToast("되돌렸어요", "투두 목록에 다시 나타납니다");
+    });
+  };
 
   const loadMonth = useCallback(async (y: number, m: number) => {
     setLoading(true);
@@ -214,6 +235,54 @@ export default function StatsClient({
           </div>
         </div>
       )}
+
+      {/* 최근 완료한 일회성 투두 (지난 7일, 되돌리기 가능) */}
+      <div className="pixel-panel p-4">
+        <button
+          onClick={() => setShowArchived(!showArchived)}
+          className="flex w-full items-center justify-between"
+        >
+          <h2 className="font-pixel text-sm text-theme">최근 완료한 일회성</h2>
+          <span className="font-pixel text-xs text-theme-muted">
+            {archivedTodos.length}개 {showArchived ? "▲" : "▼"}
+          </span>
+        </button>
+
+        {showArchived && (
+          <div className="mt-3 space-y-2">
+            {archivedTodos.length === 0 ? (
+              <p className="font-pixel text-xs text-theme-muted text-center py-4">
+                지난 7일 동안 완료한 일회성 투두가 없어요
+              </p>
+            ) : (
+              archivedTodos.map((t) => (
+                <div
+                  key={t.id}
+                  className="pixel-input flex items-center justify-between p-2"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="font-pixel text-xs text-theme truncate">
+                      {t.type === "loop" ? "🔁 " : "✓ "}{t.title}
+                    </p>
+                    {t.completed_date && (
+                      <p className="font-pixel text-[10px] text-theme-muted">
+                        {new Date(t.completed_date).toLocaleDateString("ko-KR")}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleRestore(t.id)}
+                    disabled={restorePending}
+                    className="pixel-button shrink-0 px-2 py-1 font-pixel text-[10px] text-theme-muted disabled:opacity-50"
+                  >
+                    되돌리기
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

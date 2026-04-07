@@ -25,11 +25,20 @@ export default function ToastProvider({ children }: { children: React.ReactNode 
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   const show = useCallback((text: string, subText?: string, position: ToastPosition = "bottom-right") => {
-    const id = nextId++;
-    setToasts((prev) => [...prev, { id, text, subText, position }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 2000);
+    setToasts((prev) => {
+      // dedupe: 같은 텍스트의 토스트가 이미 있으면 새로 추가하지 않음
+      if (prev.some((t) => t.text === text && t.subText === subText && t.position === position)) {
+        return prev;
+      }
+      // queue 상한: 최대 3개까지만 동시 표시 (가장 오래된 것 제거)
+      const id = nextId++;
+      const next = [...prev, { id, text, subText, position }];
+      const trimmed = next.length > 3 ? next.slice(next.length - 3) : next;
+      setTimeout(() => {
+        setToasts((p) => p.filter((t) => t.id !== id));
+      }, 2000);
+      return trimmed;
+    });
   }, []);
 
   const bottomRight = toasts.filter((t) => t.position === "bottom-right");

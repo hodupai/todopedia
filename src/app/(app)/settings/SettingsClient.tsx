@@ -9,6 +9,7 @@ import {
   claimAchievement,
   setTitle as setTitleAction,
   submitFeedback,
+  deleteOwnAccount,
   type SettingsPageData,
   type SettingsProfile,
   type SettingsInviteCode,
@@ -28,6 +29,7 @@ export default function SettingsClient({ initial }: { initial: SettingsPageData 
   const [showAchievements, setShowAchievements] = useState(false);
   const [showCodes, setShowCodes] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [showWithdraw, setShowWithdraw] = useState(false);
   const { show: showToast } = useToast();
 
   const [claimableKeys, setClaimableKeys] = useState<Set<string>>(new Set(initial.claimableKeys));
@@ -167,7 +169,7 @@ export default function SettingsClient({ initial }: { initial: SettingsPageData 
                 </div>
                 {a.unlocked && a.title_text && (
                   <span className="font-pixel text-xs shrink-0" style={{ color: "var(--theme-accent)" }}>
-                    "{a.title_text}"
+                    &ldquo;{a.title_text}&rdquo;
                   </span>
                 )}
                 {!a.unlocked && claimableKeys.has(a.key) && (
@@ -261,6 +263,27 @@ export default function SettingsClient({ initial }: { initial: SettingsPageData 
       >
         로그아웃
       </button>
+
+      {/* 회원 탈퇴 */}
+      <button
+        onClick={() => setShowWithdraw(true)}
+        className="pixel-button py-2.5 font-pixel text-xs"
+        style={{ color: "var(--theme-accent)", opacity: 0.7 }}
+      >
+        회원 탈퇴
+      </button>
+
+      {showWithdraw && profile && (
+        <WithdrawModal
+          username={profile.username}
+          onClose={() => setShowWithdraw(false)}
+          onDeleted={async () => {
+            const supabase = createClient();
+            await supabase.auth.signOut();
+            router.push("/login");
+          }}
+        />
+      )}
 
       {showFeedback && (
         <FeedbackModal
@@ -373,6 +396,106 @@ function FeedbackModal({ onClose, onSent }: { onClose: () => void; onSent: () =>
             type="button"
             onClick={onClose}
             className="pixel-button flex-1 py-2 font-pixel text-xs text-theme-muted"
+          >
+            취소
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+// 회원 탈퇴 모달 — 본인 username을 정확히 입력해야 진행
+function WithdrawModal({
+  username,
+  onClose,
+  onDeleted,
+}: {
+  username: string;
+  onClose: () => void;
+  onDeleted: () => void | Promise<void>;
+}) {
+  const [confirmText, setConfirmText] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (confirmText !== username) {
+      setError("아이디가 일치하지 않습니다.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    const result = await deleteOwnAccount(confirmText);
+    if (result.error) {
+      setError(result.error);
+      setSubmitting(false);
+      return;
+    }
+    await onDeleted();
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+      onClick={onClose}
+    >
+      <form
+        onSubmit={handleSubmit}
+        onClick={(e) => e.stopPropagation()}
+        className="pixel-panel w-full max-w-sm space-y-3 p-5"
+      >
+        <h3 className="font-pixel text-sm text-center" style={{ color: "var(--theme-accent)" }}>
+          ⚠️ 회원 탈퇴
+        </h3>
+
+        <div className="space-y-2 font-pixel text-xs text-theme-muted">
+          <p>탈퇴하면 다음 데이터가 <strong className="text-theme">영구 삭제</strong>됩니다:</p>
+          <ul className="list-disc pl-4 space-y-1">
+            <li>모든 투두/습관/기록</li>
+            <li>가디언/도감/아이템</li>
+            <li>골드, 업적, 타이틀</li>
+            <li>담벼락 게시물 및 받은 하트</li>
+            <li>참여 중인 파티 (혼자 만든 경우)</li>
+          </ul>
+          <p className="text-theme-muted pt-1">되돌릴 수 없습니다.</p>
+        </div>
+
+        <div className="space-y-1">
+          <label className="font-pixel text-xs text-theme-muted">
+            확인을 위해 본인 아이디 <span style={{ color: "var(--theme-accent)" }}>{username}</span>를 입력해주세요
+          </label>
+          <input
+            type="text"
+            value={confirmText}
+            onChange={(e) => setConfirmText(e.target.value)}
+            placeholder={username}
+            autoComplete="off"
+            className="pixel-input w-full px-2 py-2 font-pixel text-xs text-theme"
+            style={{ backgroundColor: "transparent" }}
+          />
+        </div>
+
+        {error && (
+          <p className="font-pixel text-xs" style={{ color: "var(--theme-accent)" }}>
+            {error}
+          </p>
+        )}
+
+        <div className="flex gap-2">
+          <button
+            type="submit"
+            disabled={submitting || confirmText !== username}
+            className="pixel-button flex-1 py-2 font-pixel text-xs disabled:opacity-40"
+            style={{ color: "var(--theme-accent)" }}
+          >
+            {submitting ? "삭제 중..." : "탈퇴하기"}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="pixel-button flex-1 py-2 font-pixel text-xs text-theme"
           >
             취소
           </button>

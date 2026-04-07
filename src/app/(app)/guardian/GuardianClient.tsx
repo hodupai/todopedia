@@ -150,6 +150,8 @@ export default function GuardianClient({ initial }: { initial: GuardianPageIniti
   };
 
   const handleCareUse = async (itemId: number) => {
+    // useCareItem은 server action이라 hook이 아님 (false positive)
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     const result = await useCareItem(itemId);
     if (result.error) {
       showToast(result.error);
