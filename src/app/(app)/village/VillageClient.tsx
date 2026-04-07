@@ -55,8 +55,40 @@ export default function VillageClient({ initialPosts }: { initialPosts: WallPost
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
+      {/* 상점 바로가기 (위로 이동) */}
+      <div className="grid grid-cols-4 gap-2">
+        <button
+          onClick={() => router.push("/village/shop")}
+          className="pixel-button flex flex-col items-center gap-1 py-3"
+        >
+          <span className="text-lg">🧸</span>
+          <span className="font-pixel text-[10px] text-theme">가디용품점</span>
+        </button>
+        <button
+          onClick={() => router.push("/village/fortune")}
+          className="pixel-button flex flex-col items-center gap-1 py-3"
+        >
+          <span className="text-lg">🔮</span>
+          <span className="font-pixel text-[10px] text-theme">점술관</span>
+        </button>
+        <button
+          onClick={() => router.push("/village/theme")}
+          className="pixel-button flex flex-col items-center gap-1 py-3"
+        >
+          <span className="text-lg">🎨</span>
+          <span className="font-pixel text-[10px] text-theme">테마샵</span>
+        </button>
+        <button
+          onClick={() => router.push("/village/party")}
+          className="pixel-button flex flex-col items-center gap-1 py-3"
+        >
+          <span className="text-lg">⚔️</span>
+          <span className="font-pixel text-[10px] text-theme">파티관리소</span>
+        </button>
+      </div>
+
       {/* 담벼락 */}
-      <div className="pixel-panel flex-1 overflow-y-auto scrollbar-hide p-4">
+      <div className="pixel-panel min-h-0 flex-1 overflow-y-auto scrollbar-hide p-4">
         <h2 className="font-pixel text-sm text-theme">담벼락</h2>
 
         {posts.length === 0 ? (
@@ -131,37 +163,6 @@ export default function VillageClient({ initialPosts }: { initialPosts: WallPost
         )}
       </div>
 
-      {/* 상점 바로가기 */}
-      <div className="grid grid-cols-4 gap-2">
-        <button
-          onClick={() => router.push("/village/shop")}
-          className="pixel-button flex flex-col items-center gap-1 py-3"
-        >
-          <span className="text-lg">🧸</span>
-          <span className="font-pixel text-[10px] text-theme">가디용품점</span>
-        </button>
-        <button
-          onClick={() => router.push("/village/fortune")}
-          className="pixel-button flex flex-col items-center gap-1 py-3"
-        >
-          <span className="text-lg">🔮</span>
-          <span className="font-pixel text-[10px] text-theme">점술관</span>
-        </button>
-        <button
-          onClick={() => router.push("/village/theme")}
-          className="pixel-button flex flex-col items-center gap-1 py-3"
-        >
-          <span className="text-lg">🎨</span>
-          <span className="font-pixel text-[10px] text-theme">테마샵</span>
-        </button>
-        <button
-          onClick={() => router.push("/village/party")}
-          className="pixel-button flex flex-col items-center gap-1 py-3"
-        >
-          <span className="text-lg">⚔️</span>
-          <span className="font-pixel text-[10px] text-theme">파티관리소</span>
-        </button>
-      </div>
     </div>
   );
 }

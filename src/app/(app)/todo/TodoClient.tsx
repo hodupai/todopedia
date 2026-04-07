@@ -107,6 +107,34 @@ function recordsToMap(arr: DailyRecord[]): Record<string, DailyRecord> {
   return m;
 }
 
+// 일일 목표 달성 축하 — 하루에 한 번만 발생 (sessionStorage). 취소했다 다시 채워도 또 안 뜸.
+function celebrateDailyGoalOnce(onCelebrate: () => void) {
+  if (typeof window === "undefined") return;
+  const today = new Date().toISOString().split("T")[0];
+  const key = `dailyGoalCelebrated:${today}`;
+  if (sessionStorage.getItem(key)) return;
+  sessionStorage.setItem(key, "1");
+  // localStorage에도 보관해 같은 기기 다른 탭/세션에서도 중복 방지
+  try {
+    localStorage.setItem(key, "1");
+  } catch {}
+  onCelebrate();
+}
+
+function alreadyCelebratedToday(): boolean {
+  if (typeof window === "undefined") return false;
+  const today = new Date().toISOString().split("T")[0];
+  const key = `dailyGoalCelebrated:${today}`;
+  if (sessionStorage.getItem(key)) return true;
+  try {
+    if (localStorage.getItem(key)) {
+      sessionStorage.setItem(key, "1");
+      return true;
+    }
+  } catch {}
+  return false;
+}
+
 export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
   const [tab, setTab] = useState<(typeof TABS)[number]>("할 일");
   const [todos, setTodos] = useState<Todo[]>(initial.todos);
@@ -175,10 +203,12 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
         `투두 완료! ${goldText}`,
         remaining > 0 ? `오늘 골드 잔여 기회: ${remaining}회` : "오늘 골드 기회를 모두 사용했어요"
       );
-      if (result.completedCount === result.dailyGoal) {
-        hapticCelebrate();
-        setTimeout(() => toast.show("🎉 일일 목표 달성!", undefined, "top-center"), 500);
-        postDailyGoalWall();
+      if (result.completedCount === result.dailyGoal && !alreadyCelebratedToday()) {
+        celebrateDailyGoalOnce(() => {
+          hapticCelebrate();
+          setTimeout(() => toast.show("🎉 일일 목표 달성!", undefined, "top-center"), 500);
+          postDailyGoalWall();
+        });
       }
     } else if (result.success && !result.completed) {
       hapticTap();
@@ -209,10 +239,12 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
         `루프 퀘스트 완료! ${goldText}`,
         remaining > 0 ? `오늘 골드 잔여 기회: ${remaining}회` : "오늘 골드 기회를 모두 사용했어요"
       );
-      if (result.completedCount === result.dailyGoal) {
-        hapticCelebrate();
-        setTimeout(() => toast.show("🎉 일일 목표 달성!", undefined, "top-center"), 500);
-        postDailyGoalWall();
+      if (result.completedCount === result.dailyGoal && !alreadyCelebratedToday()) {
+        celebrateDailyGoalOnce(() => {
+          hapticCelebrate();
+          setTimeout(() => toast.show("🎉 일일 목표 달성!", undefined, "top-center"), 500);
+          postDailyGoalWall();
+        });
       }
     } else if (result.success) {
       hapticTap();

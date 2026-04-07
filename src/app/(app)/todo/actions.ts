@@ -252,7 +252,8 @@ export async function getTodoPageData() {
   const [{ data: profile }, { data: todosData }, { data: recordsData }, { data: tagsData }] =
     await Promise.all([
       supabase.from("profiles").select("daily_goal, last_goal_date").eq("id", user.id).single(),
-      supabase.from("todos").select("*, tags(name, color)").eq("user_id", user.id).is("archived_at", null).order("is_important", { ascending: false }).order("created_at", { ascending: true }),
+      // archived_at: null이면 활성, 미래(=다음 KST 자정)면 오늘 하루는 보임
+      supabase.from("todos").select("*, tags(name, color)").eq("user_id", user.id).or(`archived_at.is.null,archived_at.gt.${new Date().toISOString()}`).order("is_important", { ascending: false }).order("created_at", { ascending: true }),
       supabase.from("daily_records").select("todo_id, is_completed, current_count").eq("user_id", user.id).eq("record_date", today),
       supabase.from("tags").select("id, name, color").eq("user_id", user.id).order("created_at"),
     ]);
