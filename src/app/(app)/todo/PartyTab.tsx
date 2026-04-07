@@ -97,6 +97,7 @@ function PartySection({ party, userId, onRefresh }: { party: Party; userId: stri
         <div className="flex items-center gap-2">
           <span className="font-pixel text-xs">{party.type === "individual" ? "👤" : "👥"}</span>
           <span className="font-pixel text-sm text-theme">{party.name}</span>
+          <span className="font-pixel text-[10px] text-theme-muted">{party.type === "individual" ? "(각자)" : "(다함께)"}</span>
         </div>
         <span className="font-pixel text-xs text-theme-muted">{expanded ? "▲" : "▼"}</span>
       </button>
