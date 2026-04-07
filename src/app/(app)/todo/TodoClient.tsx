@@ -153,7 +153,7 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
   const [tags, setTags] = useState<Tag[]>(initial.tags);
   const [filterTagId, setFilterTagId] = useState<string | null>(null);
   const [partyCompletedCount, setPartyCompletedCount] = useState<number>(initial.partyCompletedToday);
-  const { setGold } = useGold();
+  const { setGold, setStreak } = useGold();
   const toast = useToast();
 
   const fetchData = useCallback(async () => {
@@ -213,6 +213,7 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
     partyCompletedCount;
 
   const handleToggle = async (id: string) => {
+    const wasFirstCompletionToday = completedCount === 0;
     const result = await toggleTodo(id);
     if (result.success) {
       setRecords((prev) => ({
@@ -224,6 +225,7 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
         },
       }));
       if (result.gold) setGold((g: number) => g + result.gold);
+      if (result.completed && wasFirstCompletionToday) setStreak((s) => s + 1);
     }
     if (result.success && result.completed) {
       hapticSuccess();
@@ -250,6 +252,7 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
   };
 
   const handleIncrement = async (id: string) => {
+    const wasFirstCompletionToday = completedCount === 0;
     const result = await incrementLoop(id);
     if (result.success) {
       setRecords((prev) => ({
@@ -261,6 +264,7 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
         },
       }));
       if (result.gold) setGold((g) => g + result.gold);
+      if (result.completed && wasFirstCompletionToday) setStreak((s) => s + 1);
     }
     if (result.success && result.completed) {
       hapticSuccess();
