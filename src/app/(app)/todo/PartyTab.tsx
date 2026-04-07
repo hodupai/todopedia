@@ -40,9 +40,15 @@ export default function PartyTab() {
 
   if (parties.length === 0) {
     return (
-      <div className="flex flex-col items-center py-8">
+      <div className="flex flex-col items-center gap-3 py-8">
+        <span className="text-3xl">⚔️</span>
         <p className="font-pixel text-sm text-theme-muted">파티가 없어요</p>
-        <p className="font-pixel text-xs text-theme-muted mt-1">마을 → 파티관리소에서 파티를 만들어보세요</p>
+        <a
+          href="/village/party"
+          className="pixel-button px-4 py-2 font-pixel text-xs text-theme"
+        >
+          파티관리소로 이동
+        </a>
       </div>
     );
   }

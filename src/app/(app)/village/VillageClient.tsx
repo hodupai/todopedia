@@ -60,9 +60,18 @@ export default function VillageClient({ initialPosts }: { initialPosts: WallPost
         <h2 className="font-pixel text-sm text-theme">담벼락</h2>
 
         {posts.length === 0 ? (
-          <div className="mt-8 flex flex-col items-center justify-center py-8">
+          <div className="mt-8 flex flex-col items-center justify-center gap-3 py-8">
             <span className="text-3xl">🏘️</span>
-            <p className="font-pixel mt-2 text-sm text-theme-muted">아직 소식이 없어요</p>
+            <p className="font-pixel text-sm text-theme-muted">아직 소식이 없어요</p>
+            <p className="font-pixel text-xs text-theme-muted text-center max-w-[240px]">
+              일일 목표를 달성하거나 가디가 진화하면<br/>담벼락에 자동으로 게시돼요
+            </p>
+            <button
+              onClick={() => router.push("/todo")}
+              className="pixel-button px-4 py-2 font-pixel text-xs text-theme"
+            >
+              오늘 할 일 보기
+            </button>
           </div>
         ) : (
           <div className="mt-3 space-y-3">

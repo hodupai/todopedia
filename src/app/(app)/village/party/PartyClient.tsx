@@ -74,9 +74,15 @@ export default function PartyClient({
         ))}
 
         {parties.length === 0 && invites.length === 0 && (
-          <div className="flex flex-col items-center py-8">
+          <div className="flex flex-col items-center gap-3 py-8">
+            <span className="text-3xl">⚔️</span>
             <p className="font-pixel text-sm text-theme-muted">아직 파티가 없어요</p>
-            <p className="font-pixel text-xs text-theme-muted mt-1">파티를 만들어보세요</p>
+            <button
+              onClick={() => setShowCreate(true)}
+              className="pixel-button px-4 py-2 font-pixel text-xs text-theme"
+            >
+              + 첫 파티 만들기
+            </button>
           </div>
         )}
       </div>

@@ -8,6 +8,7 @@ import {
   getSettingsPageData,
   claimAchievement,
   setTitle as setTitleAction,
+  submitFeedback,
   type SettingsPageData,
   type SettingsProfile,
   type SettingsInviteCode,
@@ -26,6 +27,7 @@ export default function SettingsClient({ initial }: { initial: SettingsPageData 
   const [showTitles, setShowTitles] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
   const [showCodes, setShowCodes] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
   const { show: showToast } = useToast();
 
   const [claimableKeys, setClaimableKeys] = useState<Set<string>>(new Set(initial.claimableKeys));
@@ -228,6 +230,14 @@ export default function SettingsClient({ initial }: { initial: SettingsPageData 
         통계
       </button>
 
+      {/* 건의/버그 제보 */}
+      <button
+        onClick={() => setShowFeedback(true)}
+        className="pixel-button py-2.5 font-pixel text-xs text-theme"
+      >
+        💌 건의/버그 제보
+      </button>
+
       {/* 개인정보 취급 방침 */}
       <button className="pixel-button py-2.5 font-pixel text-xs text-theme-muted">
         개인정보 취급 방침
@@ -241,6 +251,122 @@ export default function SettingsClient({ initial }: { initial: SettingsPageData 
         로그아웃
       </button>
 
+      {showFeedback && (
+        <FeedbackModal
+          onClose={() => setShowFeedback(false)}
+          onSent={() => {
+            setShowFeedback(false);
+            showToast("피드백을 보냈어요", "소중한 의견 감사합니다 💌");
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// 피드백 작성 모달
+function FeedbackModal({ onClose, onSent }: { onClose: () => void; onSent: () => void }) {
+  const [category, setCategory] = useState<"bug" | "suggestion" | "other">("suggestion");
+  const [content, setContent] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (!content.trim()) {
+      setError("내용을 입력해주세요.");
+      return;
+    }
+    setSubmitting(true);
+    const result = await submitFeedback({
+      category,
+      content,
+      userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+      pagePath: typeof window !== "undefined" ? window.location.pathname : undefined,
+    });
+    setSubmitting(false);
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    onSent();
+  };
+
+  const CATS: { key: "bug" | "suggestion" | "other"; label: string; icon: string }[] = [
+    { key: "bug", label: "버그", icon: "🐛" },
+    { key: "suggestion", label: "건의", icon: "💡" },
+    { key: "other", label: "기타", icon: "💬" },
+  ];
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+      onClick={onClose}
+    >
+      <form
+        onSubmit={handleSubmit}
+        onClick={(e) => e.stopPropagation()}
+        className="pixel-panel w-full max-w-sm space-y-3 p-5"
+      >
+        <h3 className="font-pixel text-sm text-theme text-center">건의/버그 제보</h3>
+
+        {/* 카테고리 */}
+        <div className="grid grid-cols-3 gap-2">
+          {CATS.map((c) => (
+            <button
+              key={c.key}
+              type="button"
+              onClick={() => setCategory(c.key)}
+              className="pixel-button flex flex-col items-center gap-0.5 py-2 font-pixel text-xs"
+              style={{
+                opacity: category === c.key ? 1 : 0.5,
+                color: "var(--theme-text)",
+              }}
+            >
+              <span className="text-base">{c.icon}</span>
+              <span>{c.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* 내용 */}
+        <textarea
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          maxLength={2000}
+          rows={6}
+          placeholder="자유롭게 작성해주세요. 어떤 화면에서 어떻게 했을 때 무슨 일이 일어났는지 적어주시면 큰 도움이 됩니다."
+          className="pixel-input w-full p-2 font-pixel text-xs text-theme placeholder:text-theme-muted"
+          style={{ resize: "none", backgroundColor: "transparent" }}
+        />
+        <p className="font-pixel text-[10px] text-theme-muted text-right">
+          {content.length}/2000
+        </p>
+
+        {error && (
+          <p className="font-pixel text-xs" style={{ color: "var(--theme-accent)" }}>
+            {error}
+          </p>
+        )}
+
+        <div className="flex gap-2">
+          <button
+            type="submit"
+            disabled={submitting}
+            className="pixel-button flex-1 py-2 font-pixel text-xs text-theme"
+          >
+            {submitting ? "보내는 중..." : "보내기"}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="pixel-button flex-1 py-2 font-pixel text-xs text-theme-muted"
+          >
+            취소
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

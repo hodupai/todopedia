@@ -14,6 +14,7 @@ import {
   getTodoPageData,
 } from "./actions";
 import { startGuardian, postDailyGoalWall } from "../guardian/actions";
+import { hapticTap, hapticSuccess, hapticCelebrate } from "@/lib/haptic";
 import PartyTab from "./PartyTab";
 import { useGold } from "@/components/GoldProvider";
 import { useToast } from "@/components/Toast";
@@ -167,6 +168,7 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
       if (result.gold) setGold((g: number) => g + result.gold);
     }
     if (result.success && result.completed) {
+      hapticSuccess();
       const remaining = Math.max(0, (result.dailyGoal || 0) - (result.completedCount || 0));
       const goldText = result.gold > 0 ? `+${result.gold} 💰` : "";
       toast.show(
@@ -174,10 +176,12 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
         remaining > 0 ? `오늘 골드 잔여 기회: ${remaining}회` : "오늘 골드 기회를 모두 사용했어요"
       );
       if (result.completedCount === result.dailyGoal) {
+        hapticCelebrate();
         setTimeout(() => toast.show("🎉 일일 목표 달성!", undefined, "top-center"), 500);
         postDailyGoalWall();
       }
     } else if (result.success && !result.completed) {
+      hapticTap();
       if (result.gold < 0) {
         toast.show(`투두 취소 (${result.gold} 💰)`);
       }
@@ -198,6 +202,7 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
       if (result.gold) setGold((g) => g + result.gold);
     }
     if (result.success && result.completed) {
+      hapticSuccess();
       const remaining = Math.max(0, (result.dailyGoal || 0) - (result.completedCount || 0));
       const goldText = result.gold > 0 ? `+${result.gold} 💰` : "";
       toast.show(
@@ -205,15 +210,19 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
         remaining > 0 ? `오늘 골드 잔여 기회: ${remaining}회` : "오늘 골드 기회를 모두 사용했어요"
       );
       if (result.completedCount === result.dailyGoal) {
+        hapticCelebrate();
         setTimeout(() => toast.show("🎉 일일 목표 달성!", undefined, "top-center"), 500);
         postDailyGoalWall();
       }
+    } else if (result.success) {
+      hapticTap();
     }
   };
 
   const handleHabit = async (id: string) => {
     const result = await recordHabit(id);
     if (result.success) {
+      hapticTap();
       setRecords((prev) => ({
         ...prev,
         [id]: {
@@ -339,7 +348,12 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
         <div className="mt-3 space-y-2 overflow-y-auto scrollbar-hide">
           {tab === "할 일" ? (
             todoItems.length === 0 ? (
-              <EmptyState icon="📝" text="아직 할 일이 없어요" />
+              <EmptyState
+                icon="📝"
+                text="아직 할 일이 없어요"
+                ctaLabel="+ 첫 할 일 만들기"
+                onCta={() => setShowCreateModal(true)}
+              />
             ) : (
               todoItems.map((todo) => (
                 <TodoItem
@@ -354,7 +368,12 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
               ))
             )
           ) : habitItems.length === 0 ? (
-            <EmptyState icon="🔄" text="아직 습관이 없어요" />
+            <EmptyState
+              icon="🔄"
+              text="아직 습관이 없어요"
+              ctaLabel="+ 첫 습관 만들기"
+              onCta={() => setShowCreateModal(true)}
+            />
           ) : (
             habitItems.map((todo) => (
               <HabitItem
@@ -408,11 +427,29 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
 }
 
 // ── 빈 상태 ──
-function EmptyState({ icon, text }: { icon: string; text: string }) {
+function EmptyState({
+  icon,
+  text,
+  ctaLabel,
+  onCta,
+}: {
+  icon: string;
+  text: string;
+  ctaLabel?: string;
+  onCta?: () => void;
+}) {
   return (
-    <div className="flex flex-col items-center justify-center py-12">
+    <div className="flex flex-col items-center justify-center py-10 gap-3">
       <span className="text-3xl">{icon}</span>
-      <p className="font-pixel mt-2 text-sm text-theme-muted">{text}</p>
+      <p className="font-pixel text-sm text-theme-muted">{text}</p>
+      {ctaLabel && onCta && (
+        <button
+          onClick={onCta}
+          className="pixel-button px-4 py-2 font-pixel text-xs text-theme"
+        >
+          {ctaLabel}
+        </button>
+      )}
     </div>
   );
 }

@@ -95,3 +95,33 @@ export async function setTitle(title: string | null) {
   await supabase.rpc("set_title", { p_user_id: user.id, p_title: title });
   return { success: true };
 }
+
+// ── 피드백 제출 ──
+export async function submitFeedback(input: {
+  category: "bug" | "suggestion" | "other";
+  content: string;
+  userAgent?: string;
+  pagePath?: string;
+}) {
+  const supabase = await createClient();
+  const user = await getUserFromSession(supabase);
+  if (!user) return { error: "인증이 필요합니다." };
+
+  const trimmed = input.content.trim();
+  if (!trimmed) return { error: "내용을 입력해주세요." };
+  if (trimmed.length > 2000) return { error: "내용이 너무 길어요. (최대 2000자)" };
+  if (!["bug", "suggestion", "other"].includes(input.category)) {
+    return { error: "잘못된 카테고리입니다." };
+  }
+
+  const { error } = await supabase.from("feedback").insert({
+    user_id: user.id,
+    category: input.category,
+    content: trimmed,
+    user_agent: input.userAgent || null,
+    page_path: input.pagePath || null,
+  });
+
+  if (error) return { error: "전송에 실패했습니다." };
+  return { success: true };
+}

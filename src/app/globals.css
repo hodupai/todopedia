@@ -105,6 +105,16 @@
   animation: fade-in-out-down 2s ease-in-out forwards;
 }
 
+/* 골드 변동 팝업: 헤더 골드에서 위로 떠오르며 페이드 */
+@keyframes gold-pop-up {
+  0% { opacity: 0; transform: translateY(0) scale(0.9); }
+  20% { opacity: 1; transform: translateY(-4px) scale(1.05); }
+  100% { opacity: 0; transform: translateY(-22px) scale(1); }
+}
+.gold-pop {
+  animation: gold-pop-up 1.1s ease-out forwards;
+}
+
 /* 텍스트 아웃라인 (레어도 등) */
 .text-outline {
   text-shadow:

@@ -18,14 +18,20 @@ export default async function AppLayout({
   const user = await getUserFromSession(supabase);
 
   let initialGold = 0;
+  let initialStreak = 0;
   let themeInitial: ThemeInitial = {};
 
   if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("gold, active_bg, active_theme, active_font")
-      .eq("id", user.id)
-      .single();
+    const [{ data: profile }, { data: streakData }] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("gold, active_bg, active_theme, active_font")
+        .eq("id", user.id)
+        .single(),
+      supabase.rpc("get_user_streak", { p_user_id: user.id }),
+    ]);
+
+    if (typeof streakData === "number") initialStreak = streakData;
 
     if (profile) {
       initialGold = profile.gold ?? 0;
@@ -51,7 +57,7 @@ export default async function AppLayout({
 
   return (
     <ThemeProvider initial={themeInitial}>
-      <GoldProvider initialGold={initialGold}>
+      <GoldProvider initialGold={initialGold} initialStreak={initialStreak}>
         <ToastProvider>
           <div className="pixel-panel relative flex flex-1 flex-col overflow-hidden">
             <BgImage />
