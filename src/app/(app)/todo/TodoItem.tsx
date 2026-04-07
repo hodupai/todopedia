@@ -20,16 +20,11 @@ export default function TodoItem({
 }) {
   const isCompleted = record?.is_completed || false;
   const [showMenu, setShowMenu] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const handleLoopClick = () => {
     if (isCompleted) return;
-    setShowConfirm(true);
-  };
-
-  const confirmIncrement = () => {
     onIncrement(todo.id);
-    setShowConfirm(false);
   };
 
   return (
@@ -91,7 +86,7 @@ export default function TodoItem({
                   수정
                 </button>
                 <button
-                  onClick={() => { onDelete(todo.id); setShowMenu(false); }}
+                  onClick={() => { setShowDeleteConfirm(true); setShowMenu(false); }}
                   className="font-pixel text-sm whitespace-nowrap px-2 py-1"
                   style={{ color: "#c44" }}
                 >
@@ -113,25 +108,26 @@ export default function TodoItem({
         )}
       </div>
 
-      {/* 루프 확인 모달 */}
-      {showConfirm && (
+      {/* 삭제 확인 모달 */}
+      {showDeleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6">
           <div className="pixel-panel w-full max-w-xs space-y-4 p-6 text-center">
             <p className="font-pixel text-sm text-theme">
-              &ldquo;{todo.title}&rdquo;을(를) 완료하셨습니까?
+              &ldquo;{todo.title}&rdquo;을(를) 삭제할까요?
             </p>
             <div className="flex gap-2">
               <button
-                onClick={confirmIncrement}
-                className="pixel-button flex-1 py-2 font-pixel text-sm text-theme"
+                onClick={() => { onDelete(todo.id); setShowDeleteConfirm(false); }}
+                className="pixel-button flex-1 py-2 font-pixel text-sm"
+                style={{ color: "#c44" }}
               >
-                예
+                삭제
               </button>
               <button
-                onClick={() => setShowConfirm(false)}
+                onClick={() => setShowDeleteConfirm(false)}
                 className="pixel-button flex-1 py-2 font-pixel text-sm text-theme-muted"
               >
-                아니오
+                취소
               </button>
             </div>
           </div>

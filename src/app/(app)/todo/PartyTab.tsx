@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   getPartyTabData, getPartyTodos, getPartyLogs,
-  createPartyTodo, completePartyTodo,
+  createPartyTodo, completePartyTodo, updatePartyTodo, deletePartyTodo,
 } from "./party-actions";
 import type { Party, PartyTodo, PartyRecord, PartyLog } from "./party-actions";
 import { useGold } from "@/components/GoldProvider";
@@ -19,7 +19,7 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(hours / 24)}일 전`;
 }
 
-export default function PartyTab() {
+export default function PartyTab({ onPartyComplete }: { onPartyComplete?: () => void } = {}) {
   const [parties, setParties] = useState<Party[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,13 +56,13 @@ export default function PartyTab() {
   return (
     <div className="space-y-3">
       {parties.map((party) => (
-        <PartySection key={party.id} party={party} userId={userId} onRefresh={loadData} />
+        <PartySection key={party.id} party={party} userId={userId} onRefresh={loadData} onPartyComplete={onPartyComplete} />
       ))}
     </div>
   );
 }
 
-function PartySection({ party, userId, onRefresh }: { party: Party; userId: string | null; onRefresh: () => void }) {
+function PartySection({ party, userId, onRefresh, onPartyComplete }: { party: Party; userId: string | null; onRefresh: () => void; onPartyComplete?: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const [todos, setTodos] = useState<PartyTodo[]>([]);
   const [records, setRecords] = useState<Record<string, PartyRecord[]>>({});
@@ -88,7 +88,23 @@ function PartySection({ party, userId, onRefresh }: { party: Party; userId: stri
     else if (r.data?.all_done) showToast("🎉 목표 달성!");
     else showToast("기여 완료!");
     refreshGold();
+    // 일일 완료 카운트 반영: 각자/다함께 모두 기여 즉시 카운트
+    // (DB에서도 contribution 즉시 is_completed=true로 기록됨)
+    onPartyComplete?.();
     loadPartyData();
+  };
+
+  const handleDelete = async (todoId: string) => {
+    const r = await deletePartyTodo(todoId);
+    if (r.error) { showToast(r.error); return; }
+    loadPartyData();
+  };
+
+  const handleUpdate = async (todoId: string, title: string, targetCount?: number) => {
+    const r = await updatePartyTodo(todoId, title, targetCount);
+    if (r.error) { showToast(r.error); return false; }
+    loadPartyData();
+    return true;
   };
 
   return (
@@ -110,14 +126,26 @@ function PartySection({ party, userId, onRefresh }: { party: Party; userId: stri
           )}
           {(() => {
             const nicknameById = new Map(party.members.map((m) => [m.user_id, m.nickname]));
-            return todos.map((todo) => {
+            const isDone = (todo: PartyTodo) => {
+              const recs = records[todo.id] || [];
+              if (party.type === "individual") return recs.length > 0;
+              return recs.length >= todo.target_count;
+            };
+            const sorted = [...todos].sort((a, b) => Number(isDone(a)) - Number(isDone(b)));
+            return sorted.map((todo) => {
               const recs = records[todo.id] || [];
               const todayCount = recs.length;
               const myDone = recs.length > 0;
+              const done = isDone(todo);
               const creatorNickname = nicknameById.get(todo.created_by);
+              const isCreator = todo.created_by === userId;
 
               return (
-                <div key={todo.id} className="pixel-input flex items-center gap-2 p-2">
+                <div
+                  key={todo.id}
+                  className="pixel-input flex items-center gap-2 p-2"
+                  style={{ opacity: done ? 0.5 : 1 }}
+                >
                   <button
                     onClick={() => !myDone && handleComplete(todo.id)}
                     className="shrink-0 font-pixel text-sm"
@@ -138,6 +166,14 @@ function PartySection({ party, userId, onRefresh }: { party: Party; userId: stri
                       </p>
                     )}
                   </div>
+                  {isCreator && (
+                    <PartyTodoMenu
+                      todo={todo}
+                      isCollaborative={party.type === "collaborative"}
+                      onDelete={() => handleDelete(todo.id)}
+                      onUpdate={(title, tc) => handleUpdate(todo.id, title, tc)}
+                    />
+                  )}
                 </div>
               );
             });
@@ -175,6 +211,75 @@ function PartySection({ party, userId, onRefresh }: { party: Party; userId: stri
               </div>
             </div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PartyTodoMenu({
+  todo,
+  isCollaborative,
+  onDelete,
+  onUpdate,
+}: {
+  todo: PartyTodo;
+  isCollaborative: boolean;
+  onDelete: () => void;
+  onUpdate: (title: string, targetCount?: number) => Promise<boolean>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle] = useState(todo.title);
+  const [targetCount, setTargetCount] = useState(todo.target_count);
+
+  const submit = async () => {
+    if (!title.trim()) return;
+    const ok = await onUpdate(title.trim(), isCollaborative ? targetCount : undefined);
+    if (ok) { setEditing(false); setOpen(false); }
+  };
+
+  return (
+    <div className="relative shrink-0">
+      <button onClick={() => setOpen(!open)} className="px-1 font-pixel text-theme-muted">⋮</button>
+      {open && !editing && (
+        <div className="pixel-panel absolute right-0 top-6 z-10 flex flex-col gap-1 p-2">
+          <button
+            onClick={() => { setEditing(true); }}
+            className="font-pixel text-xs text-theme whitespace-nowrap px-2 py-1"
+          >수정</button>
+          <button
+            onClick={() => { onDelete(); setOpen(false); }}
+            className="font-pixel text-xs whitespace-nowrap px-2 py-1"
+            style={{ color: "#c44" }}
+          >삭제</button>
+        </div>
+      )}
+      {editing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6">
+          <div className="pixel-panel w-full max-w-xs space-y-3 p-4">
+            <h3 className="font-pixel text-xs text-theme">파티 투두 수정</h3>
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="pixel-input w-full bg-transparent px-2 py-1.5 font-pixel text-xs text-theme focus:outline-none"
+            />
+            {isCollaborative && (
+              <div className="flex items-center gap-2">
+                <span className="font-pixel text-xs text-theme-muted">목표</span>
+                <input
+                  type="number" min="1" value={targetCount}
+                  onChange={(e) => setTargetCount(Math.max(1, Number(e.target.value)))}
+                  className="pixel-input w-16 bg-transparent text-center font-pixel text-xs text-theme focus:outline-none"
+                />
+                <span className="font-pixel text-xs text-theme-muted">회</span>
+              </div>
+            )}
+            <div className="flex gap-1">
+              <button onClick={submit} className="pixel-button flex-1 py-1 font-pixel text-xs text-theme">저장</button>
+              <button onClick={() => { setEditing(false); setOpen(false); }} className="pixel-button flex-1 py-1 font-pixel text-xs text-theme-muted">취소</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

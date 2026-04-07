@@ -103,7 +103,10 @@ export async function getOverallStats(): Promise<OverallStats> {
   let streakDays = 0;
   if (activeDays && activeDays.length > 0) {
     const uniqueDates = [...new Set(activeDays.map((d: any) => d.record_date))].sort().reverse();
-    const today = new Date().toISOString().split("T")[0];
+    const today = (() => {
+      const d = new Date(Date.now() + 9 * 60 * 60 * 1000);
+      return d.toISOString().split("T")[0];
+    })();
 
     for (let i = 0; i < uniqueDates.length; i++) {
       const expected = new Date(today);

@@ -16,6 +16,7 @@ import { spawnParticleFromTodoId } from "@/lib/particles";
 import PartyTab from "./PartyTab";
 import { useGold } from "@/components/GoldProvider";
 import { useToast } from "@/components/Toast";
+import { kstToday } from "@/lib/date";
 
 import {
   Icon,
@@ -43,6 +44,7 @@ export type TodoPageInitial = {
   hasGuardian: boolean;
   needsDailyGoalPrompt: boolean;
   lastActiveDate: string | null;
+  partyCompletedToday: number;
 };
 
 function recordsToMap(arr: DailyRecord[]): Record<string, DailyRecord> {
@@ -54,7 +56,7 @@ function recordsToMap(arr: DailyRecord[]): Record<string, DailyRecord> {
 // localStorage/sessionStorage에 쌓인 어제 이전의 키들을 정리
 function cleanupOldStorageKeys() {
   if (typeof window === "undefined") return;
-  const today = new Date().toISOString().split("T")[0];
+  const today = kstToday();
   const prefixes = ["dailyGoalCelebrated:", "ensureDaily:", "streakBreakNotified:"];
   for (const storage of [localStorage, sessionStorage]) {
     try {
@@ -78,7 +80,7 @@ function cleanupOldStorageKeys() {
 // 일일 목표 달성 축하 — 하루에 한 번만 발생
 function celebrateDailyGoalOnce(onCelebrate: () => void) {
   if (typeof window === "undefined") return;
-  const today = new Date().toISOString().split("T")[0];
+  const today = kstToday();
   const key = `dailyGoalCelebrated:${today}`;
   if (sessionStorage.getItem(key)) return;
   sessionStorage.setItem(key, "1");
@@ -88,9 +90,44 @@ function celebrateDailyGoalOnce(onCelebrate: () => void) {
   onCelebrate();
 }
 
+// 완료 토스트 메시지 — 크리티컬/콤보/잭팟에 따라 톤 변화
+function buildCompleteToast(args: {
+  completed: boolean;
+  gold: number;
+  crit: boolean;
+  combo: number;
+  comboBonus: number;
+  isLoop?: boolean;
+}): { title: string; subtitle?: string } {
+  const { gold, crit, combo, comboBonus, isLoop } = args;
+  const baseLabel = isLoop ? "루프 퀘스트 완료!" : "투두 완료!";
+
+  // 잭팟: 일일 기회 끝났는데 크리티컬 터짐 (gold > 0 && crit && combo == 0)
+  if (crit && combo === 0 && gold > 0) {
+    return { title: `✨ 잭팟! +${gold}G`, subtitle: "기회가 끝났는데 골드가 터졌어요!" };
+  }
+  // 크리티컬 (eligible 안에서)
+  if (crit && gold > 0) {
+    if (comboBonus > 0) {
+      return { title: `💥 크리티컬! +${gold}G`, subtitle: `🔥 콤보 x${combo} (+${comboBonus})` };
+    }
+    return { title: `💥 크리티컬! +${gold}G` };
+  }
+  // 콤보만
+  if (comboBonus > 0 && gold > 0) {
+    return { title: `🔥 콤보 x${combo}! +${gold}G` };
+  }
+  // 일반 골드
+  if (gold > 0) {
+    return { title: `${baseLabel} +${gold}G` };
+  }
+  // 골드 없음 (기회 소진)
+  return { title: baseLabel };
+}
+
 function alreadyCelebratedToday(): boolean {
   if (typeof window === "undefined") return false;
-  const today = new Date().toISOString().split("T")[0];
+  const today = kstToday();
   const key = `dailyGoalCelebrated:${today}`;
   if (sessionStorage.getItem(key)) return true;
   try {
@@ -115,6 +152,7 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
   const [editTodo, setEditTodo] = useState<Todo | null>(null);
   const [tags, setTags] = useState<Tag[]>(initial.tags);
   const [filterTagId, setFilterTagId] = useState<string | null>(null);
+  const [partyCompletedCount, setPartyCompletedCount] = useState<number>(initial.partyCompletedToday);
   const { setGold } = useGold();
   const toast = useToast();
 
@@ -124,6 +162,7 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
     setTodos(data.todos as Todo[]);
     setTags(data.tags as Tag[]);
     setRecords(recordsToMap(data.records as DailyRecord[]));
+    setPartyCompletedCount(data.partyCompletedToday || 0);
     if (data.dailyGoal === 0 && !data.hasGuardian) setShowGuardianStartModal(true);
   }, []);
 
@@ -132,8 +171,11 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
     if (typeof window === "undefined") return;
     cleanupOldStorageKeys();
 
-    const today = new Date().toISOString().split("T")[0];
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+    const today = kstToday();
+    const yesterday = (() => {
+      const d = new Date(Date.now() - 86400000 + 9 * 60 * 60 * 1000);
+      return d.toISOString().split("T")[0];
+    })();
     const streakKey = `streakBreakNotified:${today}`;
     if (
       initial.lastActiveDate &&
@@ -166,9 +208,9 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
       return aDone - bDone;
     });
   const habitItems = todos.filter((t) => t.type === "habit").filter((t) => !filterTagId || t.tag_id === filterTagId);
-  const completedCount = allTodoItems.filter(
-    (t) => records[t.id]?.is_completed
-  ).length;
+  const completedCount =
+    allTodoItems.filter((t) => records[t.id]?.is_completed).length +
+    partyCompletedCount;
 
   const handleToggle = async (id: string) => {
     const result = await toggleTodo(id);
@@ -186,12 +228,14 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
     if (result.success && result.completed) {
       hapticSuccess();
       spawnParticleFromTodoId(id);
-      const remaining = Math.max(0, (result.dailyGoal || 0) - (result.completedCount || 0));
-      const goldText = result.gold > 0 ? `+${result.gold} 💰` : "";
-      toast.show(
-        `투두 완료! ${goldText}`,
-        remaining > 0 ? `오늘 골드 잔여 기회: ${remaining}회` : "오늘 골드 기회를 모두 사용했어요"
-      );
+      const t = buildCompleteToast({
+        completed: !!result.completed,
+        gold: result.gold || 0,
+        crit: !!result.crit,
+        combo: result.combo || 0,
+        comboBonus: result.comboBonus || 0,
+      });
+      toast.show(t.title, t.subtitle);
       if (result.completedCount === result.dailyGoal && !alreadyCelebratedToday()) {
         celebrateDailyGoalOnce(() => {
           hapticCelebrate();
@@ -201,9 +245,7 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
       }
     } else if (result.success && !result.completed) {
       hapticTap();
-      if (result.gold < 0) {
-        toast.show(`투두 취소 (${result.gold} 💰)`);
-      }
+      // 취소 시 토스트 표시 안 함 (마이너스 골드 노출이 짜증 유발)
     }
   };
 
@@ -223,12 +265,15 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
     if (result.success && result.completed) {
       hapticSuccess();
       spawnParticleFromTodoId(id);
-      const remaining = Math.max(0, (result.dailyGoal || 0) - (result.completedCount || 0));
-      const goldText = result.gold > 0 ? `+${result.gold} 💰` : "";
-      toast.show(
-        `루프 퀘스트 완료! ${goldText}`,
-        remaining > 0 ? `오늘 골드 잔여 기회: ${remaining}회` : "오늘 골드 기회를 모두 사용했어요"
-      );
+      const t = buildCompleteToast({
+        completed: !!result.completed,
+        gold: result.gold || 0,
+        crit: !!result.crit,
+        combo: result.combo || 0,
+        comboBonus: result.comboBonus || 0,
+        isLoop: true,
+      });
+      toast.show(t.title, t.subtitle);
       if (result.completedCount === result.dailyGoal && !alreadyCelebratedToday()) {
         celebrateDailyGoalOnce(() => {
           hapticCelebrate();
@@ -323,7 +368,7 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
       {/* 파티 탭 */}
       {tab === "파티" && (
         <div className="pixel-panel flex min-h-0 flex-1 flex-col overflow-y-auto scrollbar-hide p-4">
-          <PartyTab />
+          <PartyTab onPartyComplete={() => setPartyCompletedCount((c) => c + 1)} />
         </div>
       )}
 
@@ -368,7 +413,7 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
           </button>
         </div>
 
-        <div className="mt-3 space-y-2 overflow-y-auto scrollbar-hide">
+        <div className="mt-3 space-y-2 overflow-y-auto scrollbar-hide pb-20">
           {tab === "할 일" ? (
             todoItems.length === 0 ? (
               <EmptyState
@@ -441,6 +486,7 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
       {editTodo && (
         <EditModal
           todo={editTodo}
+          tags={tags}
           onClose={() => setEditTodo(null)}
           onUpdated={fetchData}
         />

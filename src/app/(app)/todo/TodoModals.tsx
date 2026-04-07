@@ -407,21 +407,27 @@ export function CreateModal({
 // ── 투두 수정 모달 ──
 export function EditModal({
   todo,
+  tags,
   onClose,
   onUpdated,
 }: {
   todo: Todo;
+  tags: Tag[];
   onClose: () => void;
   onUpdated: () => void;
 }) {
   const [isImportant, setIsImportant] = useState(todo.is_important);
   const [repeatType, setRepeatType] = useState<string | null>(todo.repeat_type);
   const [repeatDays, setRepeatDays] = useState<number[]>(todo.repeat_days || []);
+  const [selectedTagId, setSelectedTagId] = useState<string | null>(todo.tag_id);
+  const [newTagName, setNewTagName] = useState("");
+  const [localTags, setLocalTags] = useState<Tag[]>(tags);
   const [error, setError] = useState("");
 
   const handleSubmit = async (formData: FormData) => {
     formData.set("id", todo.id);
     formData.set("isImportant", String(isImportant));
+    if (selectedTagId) formData.set("tagId", selectedTagId);
     if (repeatType) {
       formData.set("repeatType", repeatType);
       if (repeatDays.length > 0) formData.set("repeatDays", JSON.stringify(repeatDays));
@@ -447,6 +453,57 @@ export function EditModal({
             defaultValue={todo.title}
             className="pixel-input w-full bg-transparent px-3 py-2.5 font-pixel text-sm text-theme focus:outline-none"
           />
+
+          <div className="flex items-start gap-2">
+            <span className="shrink-0 pt-1 font-pixel text-sm text-theme-muted">태그</span>
+            <div className="flex flex-1 flex-col gap-1">
+              <div className="flex flex-wrap gap-1">
+                <button
+                  type="button"
+                  onClick={() => setSelectedTagId(null)}
+                  className="pixel-button px-2 py-1 font-pixel text-sm"
+                  style={{ opacity: selectedTagId === null ? 1 : 0.4, color: "var(--theme-text)" }}
+                >
+                  없음
+                </button>
+                {localTags.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setSelectedTagId(t.id)}
+                    className="pixel-button px-2 py-1 font-pixel text-sm"
+                    style={{ opacity: selectedTagId === t.id ? 1 : 0.4, color: t.color }}
+                  >
+                    #{t.name}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-1">
+                <input
+                  type="text"
+                  value={newTagName}
+                  onChange={(e) => setNewTagName(e.target.value)}
+                  placeholder="새 태그"
+                  className="pixel-input w-28 bg-transparent px-2 py-1 font-pixel text-sm text-theme placeholder:text-theme-muted focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!newTagName.trim()) return;
+                    const result = await createTag(newTagName);
+                    if (result.tag) {
+                      setLocalTags([...localTags, result.tag]);
+                      setSelectedTagId(result.tag.id);
+                      setNewTagName("");
+                    }
+                  }}
+                  className="pixel-button p-1"
+                >
+                  <Icon name="add" size={16} />
+                </button>
+              </div>
+            </div>
+          </div>
 
           <PixelToggle
             checked={isImportant}

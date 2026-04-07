@@ -13,6 +13,7 @@ export type SettingsProfile = {
 export type SettingsInviteCode = {
   code: string;
   used_by: string | null;
+  used_by_nickname: string | null;
 };
 
 export type SettingsAchievement = {
@@ -51,7 +52,7 @@ export async function getSettingsPageData(): Promise<SettingsPageData> {
   ] = await Promise.all([
     supabase.rpc("check_achievements", { p_user_id: user.id }),
     supabase.from("profiles").select("username, nickname, title, created_at").eq("id", user.id).single(),
-    supabase.from("invite_codes").select("code, used_by").eq("owner_id", user.id),
+    supabase.from("invite_codes").select("code, used_by, used_by_profile:used_by(nickname)").eq("owner_id", user.id),
     supabase.from("achievements").select("*").order("sort_order"),
     supabase.from("user_achievements").select("achievement_id").eq("user_id", user.id),
     supabase.from("admin_users").select("user_id").eq("user_id", user.id).maybeSingle(),
@@ -71,7 +72,14 @@ export async function getSettingsPageData(): Promise<SettingsPageData> {
 
   return {
     profile: profileData || null,
-    inviteCodes: codes || [],
+    inviteCodes: ((codes || []) as unknown as { code: string; used_by: string | null; used_by_profile: { nickname: string } | { nickname: string }[] | null }[]).map((c) => {
+      const prof = Array.isArray(c.used_by_profile) ? c.used_by_profile[0] : c.used_by_profile;
+      return {
+        code: c.code,
+        used_by: c.used_by,
+        used_by_nickname: prof?.nickname ?? null,
+      };
+    }),
     achievements,
     claimableKeys,
     isAdmin: !!adminRow,

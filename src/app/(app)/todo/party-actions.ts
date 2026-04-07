@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { getUserFromSession } from "@/lib/supabase/auth";
+import { kstToday } from "@/lib/date";
 
 export type Party = {
   id: string;
@@ -130,7 +131,7 @@ export async function getPartyTodos(partyId: string) {
   const user = await getUserFromSession(supabase);
   if (!user) return { todos: [] as PartyTodo[], records: {} as Record<string, PartyRecord[]> };
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = kstToday();
 
   const { data: todos } = await supabase
     .from("party_todos")
@@ -190,6 +191,42 @@ export async function createPartyTodo(
     return { error: "투두 생성에 실패했습니다." };
   }
   return { success: true, data };
+}
+
+// ── 파티 투두 수정 ──
+export async function updatePartyTodo(partyTodoId: string, title: string, targetCount?: number) {
+  const supabase = await createClient();
+  const user = await getUserFromSession(supabase);
+  if (!user) return { error: "인증이 필요합니다." };
+
+  const { error } = await supabase.rpc("update_party_todo", {
+    p_user_id: user.id,
+    p_party_todo_id: partyTodoId,
+    p_title: title,
+    p_target_count: targetCount ?? null,
+  });
+  if (error) {
+    if (error.message.includes("not_creator")) return { error: "만든 사람만 수정할 수 있어요." };
+    return { error: "수정에 실패했습니다." };
+  }
+  return { success: true };
+}
+
+// ── 파티 투두 삭제 ──
+export async function deletePartyTodo(partyTodoId: string) {
+  const supabase = await createClient();
+  const user = await getUserFromSession(supabase);
+  if (!user) return { error: "인증이 필요합니다." };
+
+  const { error } = await supabase.rpc("delete_party_todo", {
+    p_user_id: user.id,
+    p_party_todo_id: partyTodoId,
+  });
+  if (error) {
+    if (error.message.includes("not_creator")) return { error: "만든 사람만 삭제할 수 있어요." };
+    return { error: "삭제에 실패했습니다." };
+  }
+  return { success: true };
 }
 
 // ── 파티 투두 완료 ──

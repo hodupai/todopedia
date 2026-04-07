@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getUserFromSession } from "@/lib/supabase/auth";
+import { kstToday } from "@/lib/date";
 
 // 골드/상한 상수는 RPC(complete_todo, complete_loop, record_habit) 내부에서 관리
 
@@ -109,6 +110,9 @@ export async function toggleTodo(todoId: string) {
     success: true,
     completed: data.completed,
     gold: data.gold,
+    crit: !!data.crit,
+    combo: data.combo as number,
+    comboBonus: (data.comboBonus as number) || 0,
     completedCount: data.completedCount,
     dailyGoal: data.dailyGoal,
   };
@@ -135,6 +139,9 @@ export async function incrementLoop(todoId: string) {
     success: true,
     completed: data.completed,
     gold: data.gold,
+    crit: !!data.crit,
+    combo: data.combo as number,
+    comboBonus: (data.comboBonus as number) || 0,
     completedCount: data.completedCount,
     dailyGoal: data.dailyGoal,
   };
@@ -189,9 +196,11 @@ export async function ensureDailyRecords() {
   const user = await getUserFromSession(supabase);
   if (!user) return;
 
-  const today = new Date().toISOString().split("T")[0];
-  const dayOfWeek = new Date().getDay(); // 0=일 ~ 6=토
-  const dayOfMonth = new Date().getDate(); // 1~31
+  // KST 기준 오늘. dayOfWeek/dayOfMonth도 KST.
+  const today = kstToday();
+  const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  const dayOfWeek = kstNow.getUTCDay();
+  const dayOfMonth = kstNow.getUTCDate();
 
   // 반복 투두 중 오늘 해당하는 것 조회
   const { data: repeatingTodos } = await supabase
@@ -244,12 +253,12 @@ export async function getTodoPageData() {
   const supabase = await createClient();
   const user = await getUserFromSession(supabase);
   if (!user) {
-    return { dailyGoal: 0, todos: [], records: [], tags: [], hasGuardian: true, needsDailyGoalPrompt: false, lastActiveDate: null };
+    return { dailyGoal: 0, todos: [], records: [], tags: [], hasGuardian: true, needsDailyGoalPrompt: false, lastActiveDate: null, partyCompletedToday: 0 };
   }
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = kstToday();
 
-  const [{ data: profile }, { data: todosData }, { data: recordsData }, { data: tagsData }, { data: lastRecord }] =
+  const [{ data: profile }, { data: todosData }, { data: recordsData }, { data: tagsData }, { data: lastRecord }, { count: partyCompletedToday }] =
     await Promise.all([
       supabase.from("profiles").select("daily_goal, last_goal_date").eq("id", user.id).single(),
       // archived_at: null이면 활성, 미래(=다음 KST 자정)면 오늘 하루는 보임
@@ -258,6 +267,8 @@ export async function getTodoPageData() {
       supabase.from("tags").select("id, name, color").eq("user_id", user.id).order("created_at"),
       // 가장 최근에 활동한 날짜 (오늘 제외)
       supabase.from("daily_records").select("record_date").eq("user_id", user.id).lt("record_date", today).order("record_date", { ascending: false }).limit(1).maybeSingle(),
+      // 오늘 완료한 파티 투두 수
+      supabase.from("party_daily_records").select("party_todo_id", { count: "exact", head: true }).eq("user_id", user.id).eq("record_date", today).eq("is_completed", true),
     ]);
 
   const dailyGoal = profile?.daily_goal || 0;
@@ -284,6 +295,7 @@ export async function getTodoPageData() {
     hasGuardian,
     needsDailyGoalPrompt,
     lastActiveDate: lastRecord?.record_date || null,
+    partyCompletedToday: partyCompletedToday || 0,
   };
 }
 
@@ -351,7 +363,7 @@ export async function restoreArchivedTodo(todoId: string) {
   if (error) return { error: "되돌리기에 실패했습니다." };
 
   // 오늘 daily_record가 있으면 미완료로 (골드 회수는 안 함 — 어드민 작업이 아니라 실수 복구이므로)
-  const today = new Date().toISOString().split("T")[0];
+  const today = kstToday();
   await supabase
     .from("daily_records")
     .update({ is_completed: false, current_count: 0 })
@@ -372,7 +384,7 @@ export async function setDailyGoal(goal: number) {
 
   if (![1, 5, 10, 20].includes(goal)) return { error: "잘못된 목표입니다." };
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = kstToday();
   const { error } = await supabase
     .from("profiles")
     .update({ daily_goal: goal, last_goal_date: today, updated_at: new Date().toISOString() })

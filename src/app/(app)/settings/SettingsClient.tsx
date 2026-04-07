@@ -217,9 +217,14 @@ export default function SettingsClient({ initial }: { initial: SettingsPageData 
                 </button>
               </div>
             ))}
-            {usedCodes.length > 0 && (
-              <p className="font-pixel text-xs text-theme-muted mt-2">사용됨 {usedCodes.length}장</p>
-            )}
+            {usedCodes.map((c) => (
+              <div key={c.code} className="pixel-input flex items-center justify-between p-2" style={{ opacity: 0.6 }}>
+                <span className="font-pixel text-xs text-theme-muted line-through">{c.code}</span>
+                <span className="font-pixel text-xs text-theme-muted">
+                  {c.used_by_nickname ?? "사용됨"}
+                </span>
+              </div>
+            ))}
           </div>
         )}
       </div>

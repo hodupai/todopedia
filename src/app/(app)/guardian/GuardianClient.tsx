@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { startGuardian, recordGrowth, evolveGuardian, getTodayCare, getOwnedItemsByCategory, useCareItem, getOwnedPotions, getTodayActivity } from "./actions";
+import { startGuardian, evolveGuardian, getOwnedItemsByCategory, useCareItem, getOwnedPotions, getGuardianPageData } from "./actions";
 import type { CareStatus, OwnedCareItem, OwnedPotion, ActivityLog } from "./actions";
 import { calcProbabilities } from "./probabilities";
 import { useGold } from "@/components/GoldProvider";
@@ -88,21 +88,11 @@ export default function GuardianClient({ initial }: { initial: GuardianPageIniti
   const { show: showToast } = useToast();
 
   const loadData = useCallback(async () => {
-    const data = await recordGrowth();
-
-    if (!data || data.status === "no_active_guardian") {
-      setState("idle");
-      setGrowthData(null);
-    } else if (data.status === "ready") {
-      setState("ready");
-      setGrowthData(data);
-    } else {
-      setState("growing");
-      setGrowthData(data);
-      const [care, logs] = await Promise.all([getTodayCare(), getTodayActivity()]);
-      setCareStatus(care);
-      setActivityLogs(logs);
-    }
+    const data = await getGuardianPageData();
+    setState(data.state);
+    setGrowthData(data.growthData);
+    setCareStatus(data.careStatus);
+    setActivityLogs(data.activityLogs);
   }, []);
 
   const handleStart = async () => {
@@ -290,7 +280,7 @@ export default function GuardianClient({ initial }: { initial: GuardianPageIniti
           <>
             <p className="font-pixel text-sm text-theme">가디 육성 중</p>
             <p className="font-pixel text-xs text-theme-muted">
-              {PERIOD_LABELS[totalDays]} 육성 · {elapsedDays}/{totalDays}일 경과
+              {PERIOD_LABELS[totalDays]} 육성 · {elapsedDays + 1}일째
             </p>
           </>
         )}
