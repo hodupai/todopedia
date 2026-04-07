@@ -27,9 +27,12 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
+  // 미들웨어는 매 요청마다 호출되므로 getUser() (HTTP) 대신 getSession() (쿠키 디코드)으로 처리.
+  // 토큰 위조 방어는 RLS가 담당하므로 미들웨어는 "세션 쿠키 존재 여부"만 체크해도 충분.
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+  const user = session?.user ?? null;
 
   const pathname = request.nextUrl.pathname;
   const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));

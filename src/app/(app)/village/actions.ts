@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getUserFromSession } from "@/lib/supabase/auth";
 
 export type WallPost = {
   id: string;
@@ -23,7 +24,7 @@ export type WallPost = {
 // ── 담벼락 조회 ──
 export async function getWallPosts(limit = 50, offset = 0): Promise<WallPost[]> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return [];
 
   const { data, error } = await supabase.rpc("get_wall_posts", {
@@ -39,7 +40,7 @@ export async function getWallPosts(limit = 50, offset = 0): Promise<WallPost[]> 
 // ── 하트 ──
 export async function heartPost(postId: string) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return { error: "인증이 필요합니다." };
 
   const { data, error } = await supabase.rpc("heart_post", {

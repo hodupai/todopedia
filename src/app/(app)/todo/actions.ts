@@ -2,16 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getUserFromSession } from "@/lib/supabase/auth";
 
-const GOLD_PER_TODO = 200;
-const GOLD_PER_HABIT_POSITIVE = 100;
-const GOLD_PER_HABIT_NEGATIVE = 50;
-const HABIT_DAILY_GOLD_CAP = 1000;
+// 골드/상한 상수는 RPC(complete_todo, complete_loop, record_habit) 내부에서 관리
 
 // ── 투두 생성 ──
 export async function createTodo(formData: FormData) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return { error: "인증이 필요합니다." };
 
   const title = formData.get("title") as string;
@@ -45,7 +43,7 @@ export async function createTodo(formData: FormData) {
 // ── 투두 수정 ──
 export async function updateTodo(formData: FormData) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return { error: "인증이 필요합니다." };
 
   const id = formData.get("id") as string;
@@ -78,7 +76,7 @@ export async function updateTodo(formData: FormData) {
 // ── 투두 삭제 ──
 export async function deleteTodo(id: string) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return { error: "인증이 필요합니다." };
 
   const { error } = await supabase
@@ -92,304 +90,83 @@ export async function deleteTodo(id: string) {
   return { success: true };
 }
 
-// ── 일반 투두 완료 토글 ──
+// ── 일반 투두 완료 토글 (RPC 1회) ──
 export async function toggleTodo(todoId: string) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return { error: "인증이 필요합니다." };
 
-  const today = new Date().toISOString().split("T")[0];
+  const { data, error } = await supabase.rpc("complete_todo", {
+    p_user_id: user.id,
+    p_todo_id: todoId,
+  });
 
-  // 기존 레코드 확인
-  const { data: record } = await supabase
-    .from("daily_records")
-    .select("id, is_completed, gold_earned")
-    .eq("todo_id", todoId)
-    .eq("record_date", today)
-    .single();
-
-  // 골드 상한 체크 (일일 목표 개수까지만)
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("daily_goal")
-    .eq("id", user.id)
-    .single();
-
-  const dailyGoal = profile?.daily_goal || 0;
-
-  if (record) {
-    // 토글: 완료 ↔ 미완료
-    const newCompleted = !record.is_completed;
-    let goldDelta = 0;
-
-    if (newCompleted) {
-      // 완료 시 골드 지급 체크
-      const { data: todayRecords } = await supabase
-        .from("daily_records")
-        .select("is_completed, gold_earned, todos(type)")
-        .eq("user_id", user.id)
-        .eq("record_date", today);
-
-      const completedTodoCount = (todayRecords || []).filter(
-        (r: any) => r.is_completed && r.todos?.type !== "habit"
-      ).length;
-
-      if (completedTodoCount < dailyGoal) {
-        goldDelta = GOLD_PER_TODO;
-      }
-    } else {
-      // 완료 취소 시 골드 회수
-      goldDelta = -record.gold_earned;
-    }
-
-    await supabase
-      .from("daily_records")
-      .update({
-        is_completed: newCompleted,
-        gold_earned: newCompleted ? (goldDelta > 0 ? GOLD_PER_TODO : 0) : 0,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", record.id);
-
-    if (goldDelta !== 0) {
-      await supabase.rpc("add_gold", { p_user_id: user.id, p_amount: goldDelta });
-    }
-
-    // 완료 후 현재 달성 수 계산
-    const { data: afterRecords } = await supabase
-      .from("daily_records")
-      .select("is_completed, todos(type)")
-      .eq("user_id", user.id)
-      .eq("record_date", today);
-    const afterCompleted = (afterRecords || []).filter(
-      (r: any) => r.is_completed && r.todos?.type !== "habit"
-    ).length;
-
-    revalidatePath("/todo");
-    return {
-      success: true,
-      completed: newCompleted,
-      gold: goldDelta,
-      completedCount: afterCompleted,
-      dailyGoal,
-    };
-  } else {
-    // 새 레코드 생성 (완료)
-    const { data: todayRecords } = await supabase
-      .from("daily_records")
-      .select("is_completed, todos(type)")
-      .eq("user_id", user.id)
-      .eq("record_date", today);
-
-    const completedTodoCount = (todayRecords || []).filter(
-      (r: any) => r.is_completed && r.todos?.type !== "habit"
-    ).length;
-
-    const gold = completedTodoCount < dailyGoal ? GOLD_PER_TODO : 0;
-
-    await supabase.from("daily_records").insert({
-      user_id: user.id,
-      todo_id: todoId,
-      record_date: today,
-      is_completed: true,
-      gold_earned: gold,
-    });
-
-    if (gold > 0) {
-      await supabase.rpc("add_gold", { p_user_id: user.id, p_amount: gold });
-    }
-
-    revalidatePath("/todo");
-    return {
-      success: true,
-      completed: true,
-      gold,
-      completedCount: completedTodoCount + 1,
-      dailyGoal,
-    };
-  }
-}
-
-// ── 루프 카운트 증가 ──
-export async function incrementLoop(todoId: string) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "인증이 필요합니다." };
-
-  const today = new Date().toISOString().split("T")[0];
-
-  const { data: todo } = await supabase
-    .from("todos")
-    .select("target_count")
-    .eq("id", todoId)
-    .single();
-
-  if (!todo) return { error: "투두를 찾을 수 없습니다." };
-
-  const { data: record } = await supabase
-    .from("daily_records")
-    .select("id, current_count, is_completed")
-    .eq("todo_id", todoId)
-    .eq("record_date", today)
-    .single();
-
-  if (record?.is_completed) return { error: "이미 완료되었습니다." };
-
-  const newCount = (record?.current_count || 0) + 1;
-  const isCompleted = newCount >= (todo.target_count || 1);
-
-  // 완료 시 골드 체크
-  let gold = 0;
-  if (isCompleted) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("daily_goal")
-      .eq("id", user.id)
-      .single();
-
-    const { data: todayRecords } = await supabase
-      .from("daily_records")
-      .select("is_completed, todos(type)")
-      .eq("user_id", user.id)
-      .eq("record_date", today);
-
-    const completedCount = (todayRecords || []).filter(
-      (r: any) => r.is_completed && r.todos?.type !== "habit"
-    ).length;
-
-    if (completedCount < (profile?.daily_goal || 0)) {
-      gold = GOLD_PER_TODO;
-    }
-  }
-
-  if (record) {
-    await supabase
-      .from("daily_records")
-      .update({
-        current_count: newCount,
-        is_completed: isCompleted,
-        gold_earned: gold,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", record.id);
-  } else {
-    await supabase.from("daily_records").insert({
-      user_id: user.id,
-      todo_id: todoId,
-      record_date: today,
-      current_count: newCount,
-      is_completed: isCompleted,
-      gold_earned: gold,
-    });
-  }
-
-  if (gold > 0) {
-    await supabase.rpc("add_gold", { p_user_id: user.id, p_amount: gold });
-  }
-
-  const { data: profile } = !isCompleted ? { data: null } : await supabase
-    .from("profiles")
-    .select("daily_goal")
-    .eq("id", user.id)
-    .single();
-
-  const { data: afterRecords } = await supabase
-    .from("daily_records")
-    .select("is_completed, todos(type)")
-    .eq("user_id", user.id)
-    .eq("record_date", today);
-  const afterCompleted = (afterRecords || []).filter(
-    (r: any) => r.is_completed && r.todos?.type !== "habit"
-  ).length;
+  if (error) return { error: "처리에 실패했습니다." };
+  if (data?.error) return { error: data.error };
 
   revalidatePath("/todo");
   return {
     success: true,
-    completed: isCompleted,
-    gold,
-    completedCount: afterCompleted,
-    dailyGoal: profile?.daily_goal || 0,
+    completed: data.completed,
+    gold: data.gold,
+    completedCount: data.completedCount,
+    dailyGoal: data.dailyGoal,
   };
 }
 
-// ── 습관 기록 ──
-export async function recordHabit(todoId: string) {
+
+// ── 루프 카운트 증가 (RPC 1회) ──
+export async function incrementLoop(todoId: string) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return { error: "인증이 필요합니다." };
 
-  const today = new Date().toISOString().split("T")[0];
-
-  const { data: todo } = await supabase
-    .from("todos")
-    .select("habit_type")
-    .eq("id", todoId)
-    .single();
-
-  if (!todo) return { error: "습관을 찾을 수 없습니다." };
-
-  // 일일 습관 골드 상한 체크
-  const { data: dailyHabitGold } = await supabase.rpc("get_daily_habit_gold", {
+  const { data, error } = await supabase.rpc("complete_loop", {
     p_user_id: user.id,
-    p_date: today,
+    p_todo_id: todoId,
   });
 
-  const goldPerAction = todo.habit_type === "positive"
-    ? GOLD_PER_HABIT_POSITIVE
-    : GOLD_PER_HABIT_NEGATIVE;
-
-  const remainingCap = HABIT_DAILY_GOLD_CAP - (dailyHabitGold || 0);
-  const gold = Math.min(goldPerAction, Math.max(0, remainingCap));
-
-  const { data: record } = await supabase
-    .from("daily_records")
-    .select("id, current_count, gold_earned")
-    .eq("todo_id", todoId)
-    .eq("record_date", today)
-    .single();
-
-  if (record) {
-    await supabase
-      .from("daily_records")
-      .update({
-        current_count: record.current_count + 1,
-        gold_earned: record.gold_earned + gold,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", record.id);
-  } else {
-    await supabase.from("daily_records").insert({
-      user_id: user.id,
-      todo_id: todoId,
-      record_date: today,
-      current_count: 1,
-      gold_earned: gold,
-    });
-  }
-
-  if (gold > 0) {
-    await supabase.rpc("add_gold", { p_user_id: user.id, p_amount: gold });
-  }
-
-  // 습관 일일 골드 누적 조회
-  const { data: totalHabitGold } = await supabase.rpc("get_daily_habit_gold", {
-    p_user_id: user.id,
-    p_date: today,
-  });
+  if (error) return { error: "처리에 실패했습니다." };
+  if (data?.error === "already_completed") return { error: "이미 완료되었습니다." };
+  if (data?.error) return { error: "처리에 실패했습니다." };
 
   revalidatePath("/todo");
   return {
     success: true,
-    gold,
-    habitDailyGold: totalHabitGold || 0,
-    habitDailyCap: HABIT_DAILY_GOLD_CAP,
+    completed: data.completed,
+    gold: data.gold,
+    completedCount: data.completedCount,
+    dailyGoal: data.dailyGoal,
+  };
+}
+
+// ── 습관 기록 (RPC 1회) ──
+export async function recordHabit(todoId: string) {
+  const supabase = await createClient();
+  const user = await getUserFromSession(supabase);
+  if (!user) return { error: "인증이 필요합니다." };
+
+  const { data, error } = await supabase.rpc("record_habit", {
+    p_user_id: user.id,
+    p_todo_id: todoId,
+  });
+
+  if (error) return { error: "처리에 실패했습니다." };
+  if (data?.error) return { error: "처리에 실패했습니다." };
+
+  revalidatePath("/todo");
+  return {
+    success: true,
+    gold: data.gold,
+    habitDailyGold: data.habitDailyGold,
+    habitDailyCap: data.habitDailyCap,
   };
 }
 
 // ── 태그 생성 ──
 export async function createTag(name: string) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return { error: "인증이 필요합니다." };
 
   const colors = ["#b06820", "#2a7a4b", "#4a6fa5", "#8b4a8b", "#a05050", "#5a8a5a"];
@@ -409,7 +186,7 @@ export async function createTag(name: string) {
 // ── 반복 투두 오늘치 레코드 생성 ──
 export async function ensureDailyRecords() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return;
 
   const today = new Date().toISOString().split("T")[0];
@@ -462,17 +239,64 @@ export async function ensureDailyRecords() {
   }
 }
 
+// ── 투두 페이지 초기 데이터 (server prefetch용) ──
+export async function getTodoPageData() {
+  const supabase = await createClient();
+  const user = await getUserFromSession(supabase);
+  if (!user) {
+    return { dailyGoal: 0, todos: [], records: [], tags: [], hasGuardian: true, needsDailyGoalPrompt: false };
+  }
+
+  const today = new Date().toISOString().split("T")[0];
+
+  const [{ data: profile }, { data: todosData }, { data: recordsData }, { data: tagsData }] =
+    await Promise.all([
+      supabase.from("profiles").select("daily_goal, last_goal_date").eq("id", user.id).single(),
+      supabase.from("todos").select("*, tags(name, color)").eq("user_id", user.id).is("archived_at", null).order("is_important", { ascending: false }).order("created_at", { ascending: true }),
+      supabase.from("daily_records").select("todo_id, is_completed, current_count").eq("user_id", user.id).eq("record_date", today),
+      supabase.from("tags").select("id, name, color").eq("user_id", user.id).order("created_at"),
+    ]);
+
+  const dailyGoal = profile?.daily_goal || 0;
+  const lastGoalDate = profile?.last_goal_date || null;
+
+  let hasGuardian = true;
+  if (dailyGoal === 0) {
+    const { data: guardian } = await supabase
+      .from("active_guardians")
+      .select("user_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    hasGuardian = !!guardian;
+  }
+
+  // 오늘 첫 접속이면(또는 한 번도 설정 안 했으면) 일일 목표 모달 prompt
+  // 단, 가디언 시작 모달이 뜰 조건(dailyGoal=0 && !hasGuardian)이면 그게 우선이므로 이 prompt는 false
+  const needsDailyGoalPrompt =
+    dailyGoal > 0 && lastGoalDate !== today && !(dailyGoal === 0 && !hasGuardian);
+
+  return {
+    dailyGoal,
+    todos: todosData || [],
+    records: recordsData || [],
+    tags: tagsData || [],
+    hasGuardian,
+    needsDailyGoalPrompt,
+  };
+}
+
 // ── 일일 목표 설정 ──
 export async function setDailyGoal(goal: number) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return { error: "인증이 필요합니다." };
 
   if (![1, 5, 10, 20].includes(goal)) return { error: "잘못된 목표입니다." };
 
+  const today = new Date().toISOString().split("T")[0];
   const { error } = await supabase
     .from("profiles")
-    .update({ daily_goal: goal, updated_at: new Date().toISOString() })
+    .update({ daily_goal: goal, last_goal_date: today, updated_at: new Date().toISOString() })
     .eq("id", user.id);
 
   if (error) return { error: "설정에 실패했습니다." };

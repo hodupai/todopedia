@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getUserFromSession } from "@/lib/supabase/auth";
 
 export type Party = {
   id: string;
@@ -20,7 +21,7 @@ export type PendingInvite = {
 // ── 내 파티 목록 ──
 export async function getMyParties(): Promise<Party[]> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return [];
 
   const { data: memberships } = await supabase
@@ -61,7 +62,7 @@ export async function getMyParties(): Promise<Party[]> {
 // ── 대기 중인 초대 ──
 export async function getPendingInvites(): Promise<PendingInvite[]> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return [];
 
   const { data } = await supabase
@@ -83,7 +84,7 @@ export async function getPendingInvites(): Promise<PendingInvite[]> {
 export async function createParty(name: string, type: string) {
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getUserFromSession(supabase);
     if (!user) return { error: "인증이 필요합니다." };
 
     const { data, error } = await supabase.rpc("create_party", {
@@ -102,7 +103,7 @@ export async function createParty(name: string, type: string) {
 // ── 초대 ──
 export async function inviteToParty(partyId: string, nickname: string) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return { error: "인증이 필요합니다." };
 
   const { data, error } = await supabase.rpc("invite_to_party", {
@@ -120,7 +121,7 @@ export async function inviteToParty(partyId: string, nickname: string) {
 // ── 초대 수락/거절 ──
 export async function acceptInvite(partyId: string) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return { error: "인증이 필요합니다." };
   const { error } = await supabase.rpc("accept_party_invite", { p_user_id: user.id, p_party_id: partyId });
   if (error) return { error: "수락에 실패했습니다." };
@@ -129,7 +130,7 @@ export async function acceptInvite(partyId: string) {
 
 export async function declineInvite(partyId: string) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return { error: "인증이 필요합니다." };
   const { error } = await supabase.rpc("decline_party_invite", { p_user_id: user.id, p_party_id: partyId });
   if (error) return { error: "거절에 실패했습니다." };
@@ -139,7 +140,7 @@ export async function declineInvite(partyId: string) {
 // ── 탈퇴 ──
 export async function leaveParty(partyId: string) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return { error: "인증이 필요합니다." };
   const { error } = await supabase.rpc("leave_party", { p_user_id: user.id, p_party_id: partyId });
   if (error) {
@@ -152,7 +153,7 @@ export async function leaveParty(partyId: string) {
 // ── 파티 삭제 (파티장만) ──
 export async function deleteParty(partyId: string) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return { error: "인증이 필요합니다." };
 
   const { error } = await supabase.rpc("delete_party", {
@@ -168,7 +169,7 @@ export async function deleteParty(partyId: string) {
 // ── 추방 ──
 export async function kickMember(partyId: string, targetId: string) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return { error: "인증이 필요합니다." };
   const { error } = await supabase.rpc("kick_party_member", {
     p_user_id: user.id, p_party_id: partyId, p_target_id: targetId,

@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getUserFromSession } from "@/lib/supabase/auth";
 
 export type DayStat = {
   date: string;
@@ -23,7 +24,7 @@ export type OverallStats = {
 // ── 월별 일별 통계 ──
 export async function getMonthlyStats(year: number, month: number): Promise<DayStat[]> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return [];
 
   const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
@@ -69,7 +70,7 @@ export async function getMonthlyStats(year: number, month: number): Promise<DayS
 // ── 전체 통계 ──
 export async function getOverallStats(): Promise<OverallStats> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return { totalTodos: 0, totalGold: 0, totalGuardians: 0, totalItems: 0, totalCare: 0, totalHearts: 0, joinDate: "", streakDays: 0 };
 
   const [

@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getUserFromSession } from "@/lib/supabase/auth";
 
 export type Party = {
   id: string;
@@ -34,7 +35,7 @@ export type PartyLog = {
 // ── 내 파티 목록 ──
 export async function getMyParties(): Promise<Party[]> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return [];
 
   const { data: memberships } = await supabase
@@ -75,14 +76,58 @@ export async function getMyParties(): Promise<Party[]> {
 // ── 현재 유저 ID ──
 export async function getCurrentUserId(): Promise<string | null> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   return user?.id || null;
+}
+
+// ── 파티 탭 초기 데이터 (parties + userId 한 번에) ──
+export async function getPartyTabData(): Promise<{ parties: Party[]; userId: string | null }> {
+  const supabase = await createClient();
+  const user = await getUserFromSession(supabase);
+  if (!user) return { parties: [], userId: null };
+
+  const { data: memberships } = await supabase
+    .from("party_members")
+    .select("party_id")
+    .eq("user_id", user.id)
+    .eq("status", "active");
+
+  if (!memberships || memberships.length === 0) return { parties: [], userId: user.id };
+
+  const partyIds = memberships.map((m: { party_id: string }) => m.party_id);
+  const [{ data: parties }, { data: allMembers }] = await Promise.all([
+    supabase.from("parties").select("id, name, type, leader_id").in("id", partyIds),
+    supabase
+      .from("party_members")
+      .select("party_id, user_id, status, profiles:user_id(nickname)")
+      .in("party_id", partyIds)
+      .eq("status", "active"),
+  ]);
+
+  if (!parties) return { parties: [], userId: user.id };
+
+  const membersByParty = new Map<string, { user_id: string; nickname: string; status: string }[]>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (allMembers || []).forEach((m: any) => {
+    const list = membersByParty.get(m.party_id) || [];
+    list.push({ user_id: m.user_id, nickname: (m.profiles as any)?.nickname || "???", status: m.status });
+    membersByParty.set(m.party_id, list);
+  });
+
+  return {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    parties: parties.map((party: any) => ({
+      ...party,
+      members: membersByParty.get(party.id) || [],
+    })),
+    userId: user.id,
+  };
 }
 
 // ── 파티 투두 + 오늘 기록 ──
 export async function getPartyTodos(partyId: string) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return { todos: [] as PartyTodo[], records: {} as Record<string, PartyRecord[]> };
 
   const today = new Date().toISOString().split("T")[0];
@@ -132,7 +177,7 @@ export async function createPartyTodo(
   repeatType?: string, repeatDays?: number[]
 ) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return { error: "인증이 필요합니다." };
 
   const { data, error } = await supabase.rpc("create_party_todo", {
@@ -150,7 +195,7 @@ export async function createPartyTodo(
 // ── 파티 투두 완료 ──
 export async function completePartyTodo(partyTodoId: string) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return { error: "인증이 필요합니다." };
 
   const { data, error } = await supabase.rpc("complete_party_todo", {

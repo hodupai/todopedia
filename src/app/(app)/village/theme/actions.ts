@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getUserFromSession } from "@/lib/supabase/auth";
 
 // ── 테마 ──
 export type ShopTheme = {
@@ -14,7 +15,7 @@ export type ShopTheme = {
 
 export async function getThemes(): Promise<ShopTheme[]> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return [];
 
   const { data: themes } = await supabase.from("shop_themes").select("*").order("price");
@@ -26,7 +27,7 @@ export async function getThemes(): Promise<ShopTheme[]> {
 
 export async function getActiveTheme(): Promise<string> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return "paper";
   const { data } = await supabase.from("profiles").select("active_theme").eq("id", user.id).single();
   return data?.active_theme || "paper";
@@ -34,7 +35,7 @@ export async function getActiveTheme(): Promise<string> {
 
 export async function buyTheme(themeId: number) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return { error: "인증이 필요합니다." };
   const { data, error } = await supabase.rpc("buy_theme", { p_user_id: user.id, p_theme_id: themeId });
   if (error) {
@@ -47,7 +48,7 @@ export async function buyTheme(themeId: number) {
 
 export async function setActiveTheme(themeKey: string) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return { error: "인증이 필요합니다." };
   const { error } = await supabase.rpc("set_active_theme", { p_user_id: user.id, p_theme_key: themeKey });
   if (error) return { error: "적용에 실패했습니다." };
@@ -69,7 +70,7 @@ export type ShopFont = {
 
 export async function getFonts(): Promise<ShopFont[]> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return [];
   const { data: fonts } = await supabase.from("shop_fonts").select("*").order("price");
   const { data: owned } = await supabase.from("owned_fonts").select("font_id").eq("user_id", user.id);
@@ -79,7 +80,7 @@ export async function getFonts(): Promise<ShopFont[]> {
 
 export async function getActiveFont(): Promise<string> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return "dunggeunmo";
   const { data } = await supabase.from("profiles").select("active_font").eq("id", user.id).single();
   return data?.active_font || "dunggeunmo";
@@ -87,7 +88,7 @@ export async function getActiveFont(): Promise<string> {
 
 export async function buyFont(fontId: number) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return { error: "인증이 필요합니다." };
   const { data, error } = await supabase.rpc("buy_font", { p_user_id: user.id, p_font_id: fontId });
   if (error) {
@@ -100,7 +101,7 @@ export async function buyFont(fontId: number) {
 
 export async function setActiveFont(fontKey: string) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return { error: "인증이 필요합니다." };
   const { error } = await supabase.rpc("set_active_font", { p_user_id: user.id, p_font_key: fontKey });
   if (error) return { error: "적용에 실패했습니다." };
@@ -119,7 +120,7 @@ export type ShopBackground = {
 // ── 배경 목록 (소유 여부 포함) ──
 export async function getBackgrounds(): Promise<ShopBackground[]> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return [];
 
   const { data: bgs } = await supabase
@@ -143,7 +144,7 @@ export async function getBackgrounds(): Promise<ShopBackground[]> {
 // ── 현재 활성 배경 ──
 export async function getActiveBg(): Promise<string> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return "pixel_forest1";
 
   const { data } = await supabase
@@ -158,7 +159,7 @@ export async function getActiveBg(): Promise<string> {
 // ── 배경 구매 ──
 export async function buyBackground(backgroundId: number) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return { error: "인증이 필요합니다." };
 
   const { data, error } = await supabase.rpc("buy_background", {
@@ -177,7 +178,7 @@ export async function buyBackground(backgroundId: number) {
 // ── 배경 적용 ──
 export async function setActiveBg(assetKey: string) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return { error: "인증이 필요합니다." };
 
   const { error } = await supabase.rpc("set_active_bg", {

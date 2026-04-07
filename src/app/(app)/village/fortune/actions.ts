@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getUserFromSession } from "@/lib/supabase/auth";
 
 export type PotionItem = {
   id: number;
@@ -18,7 +19,7 @@ export type PotionItem = {
 // ── 포션 목록 (소지 수량 포함) ──
 export async function getPotions(): Promise<PotionItem[]> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return [];
 
   const { data: potions } = await supabase
@@ -44,7 +45,7 @@ export async function getPotions(): Promise<PotionItem[]> {
 // ── 포션 구매 ──
 export async function buyPotion(potionTypeId: number, quantity: number = 1) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return { error: "인증이 필요합니다." };
 
   const { data, error } = await supabase.rpc("buy_potion", {

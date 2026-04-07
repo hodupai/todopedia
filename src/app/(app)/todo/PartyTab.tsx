@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-  getMyParties, getPartyTodos, getPartyLogs,
-  createPartyTodo, completePartyTodo, getCurrentUserId,
+  getPartyTabData, getPartyTodos, getPartyLogs,
+  createPartyTodo, completePartyTodo,
 } from "./party-actions";
 import type { Party, PartyTodo, PartyRecord, PartyLog } from "./party-actions";
 import { useGold } from "@/components/GoldProvider";
@@ -26,7 +26,7 @@ export default function PartyTab() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    const [p, uid] = await Promise.all([getMyParties(), getCurrentUserId()]);
+    const { parties: p, userId: uid } = await getPartyTabData();
     setParties(p);
     setUserId(uid);
     setLoading(false);

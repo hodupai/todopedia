@@ -3,6 +3,15 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { THEMES, DEFAULT_THEME, type ThemeConfig } from "@/lib/themes";
 import { createClient } from "@/lib/supabase/client";
+import { getUserFromSession } from "@/lib/supabase/auth";
+
+export type ThemeInitial = {
+  themeId?: string | null;
+  bgKey?: string | null;
+  fontFamily?: string | null;
+  fontImportUrl?: string | null;
+  fontFaceCss?: string | null;
+};
 
 const ThemeContext = createContext<{
   theme: ThemeConfig;
@@ -50,15 +59,55 @@ function applyThemeVars(theme: ThemeConfig) {
   root.style.setProperty("--theme-nav-text-active", colors.navTextActive);
 }
 
-export default function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [themeId, setThemeId] = useState(DEFAULT_THEME);
-  const [bgKey, setBgKey] = useState("pixel_forest1");
-  const [fontFamily, setFontFamily] = useState('"DungGeunMo", monospace');
+function injectFontAssets(importUrl?: string | null, faceCss?: string | null) {
+  if (typeof document === "undefined") return;
+  if (importUrl) {
+    const id = `theme-font-link-${importUrl}`;
+    if (!document.getElementById(id)) {
+      const link = document.createElement("link");
+      link.id = id;
+      link.rel = "stylesheet";
+      link.href = importUrl;
+      document.head.appendChild(link);
+    }
+  }
+  if (faceCss) {
+    // 해시 대신 내용 길이+첫 32자로 고유 id (간단 dedupe)
+    const id = `theme-font-style-${faceCss.length}-${faceCss.slice(0, 32).replace(/\W/g, "")}`;
+    if (!document.getElementById(id)) {
+      const style = document.createElement("style");
+      style.id = id;
+      style.textContent = faceCss;
+      document.head.appendChild(style);
+    }
+  }
+}
+
+export default function ThemeProvider({
+  initial,
+  children,
+}: {
+  initial?: ThemeInitial;
+  children: React.ReactNode;
+}) {
+  const [themeId, setThemeId] = useState(
+    initial?.themeId && THEMES[initial.themeId] ? initial.themeId : DEFAULT_THEME
+  );
+  const [bgKey, setBgKey] = useState(initial?.bgKey || "pixel_forest1");
+  const [fontFamily, setFontFamily] = useState(
+    initial?.fontFamily || '"DungGeunMo", monospace'
+  );
   const theme = THEMES[themeId] ?? THEMES[DEFAULT_THEME];
+
+  // 초기 폰트 에셋 주입 (마운트 시 1회)
+  useEffect(() => {
+    injectFontAssets(initial?.fontImportUrl, initial?.fontFaceCss);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const refreshBg = useCallback(async () => {
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getUserFromSession(supabase);
     if (!user) return;
 
     const { data } = await supabase
@@ -70,7 +119,6 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
     if (data?.active_bg) setBgKey(data.active_bg);
     if (data?.active_theme && THEMES[data.active_theme]) setThemeId(data.active_theme);
 
-    // 폰트 로드
     if (data?.active_font && data.active_font !== "dunggeunmo") {
       const { data: fontData } = await supabase
         .from("shop_fonts")
@@ -79,20 +127,11 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
         .single();
 
       if (fontData) {
-        // CSS import 또는 font-face 동적 추가
-        if (fontData.import_url) {
-          const link = document.createElement("link");
-          link.rel = "stylesheet";
-          link.href = fontData.import_url;
-          document.head.appendChild(link);
-        }
-        if (fontData.font_face_css) {
-          const style = document.createElement("style");
-          style.textContent = fontData.font_face_css;
-          document.head.appendChild(style);
-        }
+        injectFontAssets(fontData.import_url, fontData.font_face_css);
         setFontFamily(fontData.font_family);
       }
+    } else if (data?.active_font === "dunggeunmo") {
+      setFontFamily('"DungGeunMo", monospace');
     }
   }, []);
 
@@ -103,10 +142,6 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
   useEffect(() => {
     document.documentElement.style.setProperty("--font-pixel", fontFamily);
   }, [fontFamily]);
-
-  useEffect(() => {
-    refreshBg();
-  }, [refreshBg]);
 
   return (
     <ThemeContext.Provider value={{ theme, setThemeId, bgKey, setBgKey, fontFamily, setFontFamily, refreshBg }}>

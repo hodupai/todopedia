@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getUserFromSession } from "@/lib/supabase/auth";
 
 export type CareStatus = {
   food: boolean;
@@ -20,7 +21,7 @@ export type OwnedCareItem = {
 // ── 활성 가디 조회 ──
 export async function getActiveGuardian() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return null;
 
   const { data } = await supabase
@@ -35,7 +36,7 @@ export async function getActiveGuardian() {
 // ── 가디 시작 ──
 export async function startGuardian(periodDays: number, dailyGoal: number) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return { error: "인증이 필요합니다." };
 
   const { data, error } = await supabase.rpc("start_guardian", {
@@ -54,10 +55,58 @@ export async function startGuardian(periodDays: number, dailyGoal: number) {
   return { success: true, data };
 }
 
+// ── 가디 페이지 초기 데이터 (server prefetch용) ──
+export async function getGuardianPageData() {
+  const supabase = await createClient();
+  const user = await getUserFromSession(supabase);
+  if (!user) {
+    return {
+      state: "idle" as const,
+      growthData: null,
+      careStatus: { food: false, play: false, hygiene: false, sleep: false },
+      activityLogs: [] as ActivityLog[],
+    };
+  }
+
+  const { data } = await supabase.rpc("record_guardian_growth", {
+    p_user_id: user.id,
+  });
+
+  if (!data || data.status === "no_active_guardian") {
+    return {
+      state: "idle" as const,
+      growthData: null,
+      careStatus: { food: false, play: false, hygiene: false, sleep: false },
+      activityLogs: [] as ActivityLog[],
+    };
+  }
+
+  if (data.status === "ready") {
+    return {
+      state: "ready" as const,
+      growthData: data,
+      careStatus: { food: false, play: false, hygiene: false, sleep: false },
+      activityLogs: [] as ActivityLog[],
+    };
+  }
+
+  // growing
+  const [careStatus, activityLogs] = await Promise.all([
+    getTodayCare(),
+    getTodayActivity(),
+  ]);
+  return {
+    state: "growing" as const,
+    growthData: data,
+    careStatus,
+    activityLogs,
+  };
+}
+
 // ── 성장치 기록 ──
 export async function recordGrowth() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return null;
 
   const { data, error } = await supabase.rpc("record_guardian_growth", {
@@ -71,7 +120,7 @@ export async function recordGrowth() {
 // ── 진화 (가챠) ──
 export async function evolveGuardian(potionTypeId?: number) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return { error: "인증이 필요합니다." };
 
   const { data, error } = await supabase.rpc("evolve_guardian", {
@@ -107,7 +156,7 @@ export type OwnedPotion = {
 // ── 소지 포션 목록 ──
 export async function getOwnedPotions(): Promise<OwnedPotion[]> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return [];
 
   const { data } = await supabase
@@ -141,7 +190,7 @@ export type ActivityLog = {
 // ── 오늘 활동 기록 ──
 export async function getTodayActivity(): Promise<ActivityLog[]> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return [];
 
   const today = new Date().toISOString().split("T")[0];
@@ -259,7 +308,7 @@ export async function getTodayActivity(): Promise<ActivityLog[]> {
 // ── 일일 목표 달성 담벼락 게시 ──
 export async function postDailyGoalWall() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return;
 
   await supabase.rpc("post_daily_goal_wall", { p_user_id: user.id });
@@ -268,7 +317,7 @@ export async function postDailyGoalWall() {
 // ── 오늘 돌봄 현황 ──
 export async function getTodayCare(): Promise<CareStatus> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return { food: false, play: false, hygiene: false, sleep: false };
 
   const { data } = await supabase.rpc("get_today_care", { p_user_id: user.id });
@@ -285,7 +334,7 @@ export async function getTodayCare(): Promise<CareStatus> {
 // ── 카테고리별 소지 아이템 목록 ──
 export async function getOwnedItemsByCategory(category: string): Promise<OwnedCareItem[]> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return [];
 
   const { data } = await supabase
@@ -310,7 +359,7 @@ export async function getOwnedItemsByCategory(category: string): Promise<OwnedCa
 // ── 아이템 사용 (돌보기) ──
 export async function useCareItem(itemTypeId: number) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return { error: "인증이 필요합니다." };
 
   const { data, error } = await supabase.rpc("use_care_item", {

@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getUserFromSession } from "@/lib/supabase/auth";
 
 export type ShopItem = {
   id: number;
@@ -15,7 +16,7 @@ export type ShopItem = {
 // ── 상점 아이템 목록 (카테고리별, 소지/도감 포함) ──
 export async function getShopItems(category: string): Promise<ShopItem[]> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return [];
 
   const { data: items } = await supabase
@@ -52,7 +53,7 @@ export async function getShopItems(category: string): Promise<ShopItem[]> {
 // ── 아이템 구매 ──
 export async function buyItem(itemTypeId: number, quantity: number = 1) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return { error: "인증이 필요합니다." };
 
   const { data, error } = await supabase.rpc("buy_item", {

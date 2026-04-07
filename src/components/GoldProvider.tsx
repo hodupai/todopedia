@@ -1,23 +1,31 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useState, useCallback, type Dispatch, type SetStateAction } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { getUserFromSession } from "@/lib/supabase/auth";
 
 const GoldContext = createContext<{
   gold: number;
   refresh: () => void;
-}>({ gold: 0, refresh: () => {} });
+  setGold: Dispatch<SetStateAction<number>>;
+}>({ gold: 0, refresh: () => {}, setGold: () => {} });
 
 export function useGold() {
   return useContext(GoldContext);
 }
 
-export default function GoldProvider({ children }: { children: React.ReactNode }) {
-  const [gold, setGold] = useState(0);
+export default function GoldProvider({
+  initialGold = 0,
+  children,
+}: {
+  initialGold?: number;
+  children: React.ReactNode;
+}) {
+  const [gold, setGold] = useState(initialGold);
 
   const refresh = useCallback(async () => {
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getUserFromSession(supabase);
     if (!user) return;
 
     const { data } = await supabase
@@ -29,12 +37,8 @@ export default function GoldProvider({ children }: { children: React.ReactNode }
     if (data) setGold(data.gold);
   }, []);
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
-
   return (
-    <GoldContext.Provider value={{ gold, refresh }}>
+    <GoldContext.Provider value={{ gold, refresh, setGold }}>
       {children}
     </GoldContext.Provider>
   );

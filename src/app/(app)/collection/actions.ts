@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getUserFromSession } from "@/lib/supabase/auth";
 
 export type CollectionItem = {
   id: string;
@@ -38,7 +39,7 @@ export async function getGuardianTypes(seasonId: number = 1) {
 // ── 내 컬렉션 ──
 export async function getCollection(seasonId?: number) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return [];
 
   const { data, error } = await supabase.rpc("get_collection", {
@@ -74,7 +75,7 @@ export async function getItemTypes(category: string): Promise<ItemType[]> {
 
 export async function getItemCollection(): Promise<Set<number>> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return new Set();
 
   const { data } = await supabase
@@ -87,7 +88,7 @@ export async function getItemCollection(): Promise<Set<number>> {
 
 export async function getItemCollectionSummary() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return [];
 
   const { data } = await supabase.rpc("get_item_collection_summary", {
@@ -99,7 +100,7 @@ export async function getItemCollectionSummary() {
 
 export async function getCollectionSummary(seasonId?: number) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserFromSession(supabase);
   if (!user) return { collected: 0, total: 0 };
 
   const { data, error } = await supabase.rpc("get_collection_summary", {
