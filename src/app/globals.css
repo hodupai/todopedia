@@ -115,23 +115,29 @@
   animation: gold-pop-up 1.1s ease-out forwards;
 }
 
-/* 페이지 전환 — Native View Transitions API */
-::view-transition-old(root) {
-  animation: page-fade-out 140ms ease-out forwards;
-}
+/* 페이지 전환 — Native View Transitions API
+   root는 헤더/네비/배경을 포함해 안 바뀌어야 하므로 애니메이션 끔.
+   main만 분리해서 (view-transition-name: main-content) 짧은 fade. */
+::view-transition-old(root),
 ::view-transition-new(root) {
-  animation: page-fade-in 200ms ease-out forwards;
+  animation: none;
 }
-@keyframes page-fade-out {
+::view-transition-old(main-content) {
+  animation: main-fade-out 100ms ease-out forwards;
+}
+::view-transition-new(main-content) {
+  animation: main-fade-in 140ms ease-out forwards;
+}
+@keyframes main-fade-out {
   to { opacity: 0; }
 }
-@keyframes page-fade-in {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+@keyframes main-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 @media (prefers-reduced-motion: reduce) {
-  ::view-transition-old(root),
-  ::view-transition-new(root) {
+  ::view-transition-old(main-content),
+  ::view-transition-new(main-content) {
     animation: none;
   }
 }

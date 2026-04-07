@@ -62,7 +62,13 @@ export default async function AppLayout({
           <div className="pixel-panel relative flex flex-1 flex-col overflow-hidden">
             <BgImage />
             <Header />
-            <main className="flex flex-1 flex-col overflow-y-auto scrollbar-hide" style={{ backgroundColor: "var(--theme-bg-translucent)" }}>
+            <main
+              className="flex flex-1 flex-col overflow-y-auto scrollbar-hide"
+              style={{
+                backgroundColor: "var(--theme-bg-translucent)",
+                viewTransitionName: "main-content",
+              }}
+            >
               {children}
             </main>
             <BottomNav />
