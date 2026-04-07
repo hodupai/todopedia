@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
   type AdminDashboard,
   type AdminFeedback,
@@ -47,6 +47,14 @@ export default function AdminClient({
     });
   };
 
+  // 사용자 탭이 처음 열릴 때 자동 로드
+  useEffect(() => {
+    if (tab === "사용자" && users.length === 0) {
+      handleSearch("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
   const handleSelectUser = (id: string) => {
     startTransition(async () => {
       const detail = await getUserDetail(id);
@@ -82,7 +90,7 @@ export default function AdminClient({
 
       {/* 대시보드 */}
       {tab === "대시보드" && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="space-y-3">
           <Stat label="총 유저" value={dashboard.totalUsers} />
           <Stat label="오늘 가입" value={dashboard.todayJoined} />
           <Stat label="오늘 액티브" value={dashboard.todayActive} />
