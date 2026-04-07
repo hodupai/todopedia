@@ -66,7 +66,6 @@ export default async function AppLayout({
               className="flex flex-1 flex-col overflow-y-auto scrollbar-hide"
               style={{
                 backgroundColor: "var(--theme-bg-translucent)",
-                viewTransitionName: "main-content",
               }}
             >
               {children}
