@@ -132,30 +132,49 @@ export async function getPartyTodos(partyId: string) {
   if (!user) return { todos: [] as PartyTodo[], records: {} as Record<string, PartyRecord[]> };
 
   const today = kstToday();
+  const nowIso = new Date().toISOString();
 
   const { data: todos } = await supabase
     .from("party_todos")
     .select("id, party_id, title, target_count, repeat_type, repeat_days, created_by")
     .eq("party_id", partyId)
+    .or(`archived_at.is.null,archived_at.gt.${nowIso}`)
     .order("created_at");
 
-  const todoIds = (todos || []).map((t: any) => t.id);
+  const allTodos = (todos as PartyTodo[]) || [];
+  const oneTimeIds = allTodos.filter((t) => !t.repeat_type).map((t) => t.id);
+  const recurringIds = allTodos.filter((t) => t.repeat_type).map((t) => t.id);
   const records: Record<string, PartyRecord[]> = {};
 
-  if (todoIds.length > 0) {
-    const { data: recs } = await supabase
-      .from("party_daily_records")
-      .select("party_todo_id, user_id, is_completed")
-      .in("party_todo_id", todoIds)
-      .eq("record_date", today);
+  const queries: Promise<{ data: any[] | null }>[] = [];
+  if (recurringIds.length > 0) {
+    queries.push(
+      supabase
+        .from("party_daily_records")
+        .select("party_todo_id, user_id, is_completed")
+        .in("party_todo_id", recurringIds)
+        .eq("record_date", today)
+    );
+  }
+  if (oneTimeIds.length > 0) {
+    // 일회성: 날짜 무관하게 누적 기록 (자정이 지나도 완료 표시 유지)
+    queries.push(
+      supabase
+        .from("party_daily_records")
+        .select("party_todo_id, user_id, is_completed")
+        .in("party_todo_id", oneTimeIds)
+    );
+  }
 
+  const results = await Promise.all(queries);
+  results.forEach(({ data: recs }) => {
     (recs || []).forEach((r: any) => {
       if (!records[r.party_todo_id]) records[r.party_todo_id] = [];
       records[r.party_todo_id].push(r);
     });
-  }
+  });
 
-  return { todos: (todos as PartyTodo[]) || [], records };
+  return { todos: allTodos, records };
 }
 
 // ── 파티 활동 기록 (최근 10건) ──
