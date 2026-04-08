@@ -404,7 +404,26 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
       {/* 파티 탭 */}
       {tab === "파티" && (
         <div className="pixel-panel flex min-h-0 flex-1 flex-col overflow-y-auto scrollbar-hide p-4">
-          <PartyTab onPartyComplete={() => setPartyCompletedCount((c) => c + 1)} />
+          <PartyTab
+            onPartyComplete={() => {
+              setPartyCompletedCount((c) => {
+                const next = c + 1;
+                const newTotal =
+                  allTodoItems.filter((t) => records[t.id]?.is_completed).length + next;
+                if (newTotal === dailyGoal && !alreadyCelebratedToday()) {
+                  celebrateDailyGoalOnce(() => {
+                    hapticCelebrate();
+                    setTimeout(
+                      () => toast.show("🎉 일일 목표 달성!", undefined, "top-center"),
+                      500
+                    );
+                    postDailyGoalWall();
+                  });
+                }
+                return next;
+              });
+            }}
+          />
         </div>
       )}
 
