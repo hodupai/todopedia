@@ -35,6 +35,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko" className="h-full">
+      <head>
+        {/* beforeinstallprompt를 React 마운트 이전에 캐치 */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__deferredInstallPrompt=e;window.dispatchEvent(new Event('pwa-install-available'));});window.addEventListener('appinstalled',function(){window.__deferredInstallPrompt=null;});`,
+          }}
+        />
+      </head>
       <body className="flex h-full justify-center bg-[#1a1a2e] antialiased">
         <div className="flex h-full w-full max-w-[480px] flex-col">
           {children}

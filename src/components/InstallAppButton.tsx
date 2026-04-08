@@ -28,18 +28,30 @@ export default function InstallAppButton() {
         !window.MSStream
     );
 
+    // layout 인라인 스크립트가 미리 잡아둔 이벤트가 있으면 즉시 사용
+    // @ts-expect-error window 글로벌
+    const cached = window.__deferredInstallPrompt as BIPEvent | undefined;
+    if (cached) setDeferred(cached);
+
     const onBIP = (e: Event) => {
       e.preventDefault();
       setDeferred(e as BIPEvent);
+    };
+    const onAvailable = () => {
+      // @ts-expect-error window 글로벌
+      const ev = window.__deferredInstallPrompt as BIPEvent | undefined;
+      if (ev) setDeferred(ev);
     };
     const onInstalled = () => {
       setDeferred(null);
       setIsStandalone(true);
     };
     window.addEventListener("beforeinstallprompt", onBIP);
+    window.addEventListener("pwa-install-available", onAvailable);
     window.addEventListener("appinstalled", onInstalled);
     return () => {
       window.removeEventListener("beforeinstallprompt", onBIP);
+      window.removeEventListener("pwa-install-available", onAvailable);
       window.removeEventListener("appinstalled", onInstalled);
     };
   }, []);
