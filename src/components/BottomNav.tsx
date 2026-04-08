@@ -32,7 +32,7 @@ export default function BottomNav() {
             <li key={item.href}>
               <Link
                 href={item.href}
-                className="flex items-center justify-center px-4 py-2 transition-opacity"
+                className="flex items-center justify-center px-4 py-2"
                 style={{ opacity: isActive ? 1 : 0.4 }}
               >
                 <img

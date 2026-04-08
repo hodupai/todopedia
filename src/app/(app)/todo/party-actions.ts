@@ -146,33 +146,32 @@ export async function getPartyTodos(partyId: string) {
   const recurringIds = allTodos.filter((t) => t.repeat_type).map((t) => t.id);
   const records: Record<string, PartyRecord[]> = {};
 
-  const queries: Promise<{ data: any[] | null }>[] = [];
-  if (recurringIds.length > 0) {
-    queries.push(
-      supabase
-        .from("party_daily_records")
-        .select("party_todo_id, user_id, is_completed")
-        .in("party_todo_id", recurringIds)
-        .eq("record_date", today)
-    );
-  }
-  if (oneTimeIds.length > 0) {
-    // 일회성: 날짜 무관하게 누적 기록 (자정이 지나도 완료 표시 유지)
-    queries.push(
-      supabase
-        .from("party_daily_records")
-        .select("party_todo_id, user_id, is_completed")
-        .in("party_todo_id", oneTimeIds)
-    );
-  }
-
-  const results = await Promise.all(queries);
-  results.forEach(({ data: recs }) => {
-    (recs || []).forEach((r: any) => {
+  const pushRecs = (recs: PartyRecord[] | null) => {
+    (recs || []).forEach((r) => {
       if (!records[r.party_todo_id]) records[r.party_todo_id] = [];
       records[r.party_todo_id].push(r);
     });
-  });
+  };
+
+  const [recurringRes, oneTimeRes] = await Promise.all([
+    recurringIds.length > 0
+      ? supabase
+          .from("party_daily_records")
+          .select("party_todo_id, user_id, is_completed")
+          .in("party_todo_id", recurringIds)
+          .eq("record_date", today)
+      : Promise.resolve({ data: null }),
+    // 일회성: 날짜 무관하게 누적 기록 (자정이 지나도 완료 표시 유지)
+    oneTimeIds.length > 0
+      ? supabase
+          .from("party_daily_records")
+          .select("party_todo_id, user_id, is_completed")
+          .in("party_todo_id", oneTimeIds)
+      : Promise.resolve({ data: null }),
+  ]);
+
+  pushRecs(recurringRes.data as PartyRecord[] | null);
+  pushRecs(oneTimeRes.data as PartyRecord[] | null);
 
   return { todos: allTodos, records };
 }
