@@ -34,15 +34,6 @@ export default function TodoItem({
         className="pixel-input flex flex-col gap-1 px-3 py-2"
         style={{ opacity: isCompleted ? 0.5 : 1 }}
       >
-        {/* 태그 행 */}
-        {todo.tags && (
-          <div className="pl-8">
-            <span className="font-pixel text-xs" style={{ color: todo.tags.color }}>
-              #{todo.tags.name}
-            </span>
-          </div>
-        )}
-
         {/* 메인 행: 체크 + 별 + 제목 + 카운트 + 메뉴 */}
         <div className="flex items-center gap-2">
           {todo.type === "normal" ? (
@@ -97,13 +88,20 @@ export default function TodoItem({
           </div>
         </div>
 
-        {/* 2행: 반복 정보 (우측정렬) */}
-        {todo.repeat_type && (
-          <div className="flex items-center justify-end gap-1">
-            <Icon name="repeat" size={14} />
-            <span className="font-pixel text-xs text-theme-muted">
-              {formatRepeat(todo.repeat_type, todo.repeat_days)}
+        {/* 2행: 태그 + 반복 정보 */}
+        {(todo.tags || todo.repeat_type) && (
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-pixel text-xs" style={{ color: todo.tags?.color }}>
+              {todo.tags ? `#${todo.tags.name}` : ""}
             </span>
+            {todo.repeat_type && (
+              <div className="flex items-center gap-1">
+                <Icon name="repeat" size={14} />
+                <span className="font-pixel text-xs text-theme-muted">
+                  {formatRepeat(todo.repeat_type, todo.repeat_days)}
+                </span>
+              </div>
+            )}
           </div>
         )}
       </div>
