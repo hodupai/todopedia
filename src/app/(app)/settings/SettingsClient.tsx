@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
+import InstallAppButton from "@/components/InstallAppButton";
 import {
   getSettingsPageData,
   claimAchievement,
@@ -255,6 +256,9 @@ export default function SettingsClient({ initial }: { initial: SettingsPageData 
       >
         💌 건의/버그 제보
       </button>
+
+      {/* 홈 화면에 추가 (PWA 설치) */}
+      <InstallAppButton />
 
       {/* 개인정보 취급 방침 */}
       <button className="pixel-button py-2.5 font-pixel text-xs text-theme-muted">
