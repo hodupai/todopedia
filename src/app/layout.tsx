@@ -6,6 +6,16 @@ export const metadata: Metadata = {
   title: "TODOPEDIA",
   description: "투두 + 다마고치 게이미피케이션 웹앱",
   applicationName: "TODOPEDIA",
+  robots: {
+    index: false,
+    follow: false,
+    nocache: true,
+    googleBot: {
+      index: false,
+      follow: false,
+      noimageindex: true,
+    },
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
