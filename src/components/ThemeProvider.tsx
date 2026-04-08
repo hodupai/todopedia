@@ -37,13 +37,23 @@ export function useTheme() {
 
 function applyThemeVars(theme: ThemeConfig) {
   const root = document.documentElement;
-  const { assets, colors } = theme;
+  const { assets, colors, flat } = theme;
 
-  root.style.setProperty("--theme-frame", `url("${assets.frame}")`);
-  root.style.setProperty("--theme-input", `url("${assets.input}")`);
-  root.style.setProperty("--theme-button", `url("${assets.button}")`);
-  root.style.setProperty("--theme-button-hover", `url("${assets.buttonHover}")`);
-  root.style.setProperty("--theme-banner", `url("${assets.banner}")`);
+  if (flat || !assets) {
+    root.style.setProperty("--theme-frame", "none");
+    root.style.setProperty("--theme-input", "none");
+    root.style.setProperty("--theme-button", "none");
+    root.style.setProperty("--theme-button-hover", "none");
+    root.style.setProperty("--theme-banner", "none");
+    root.dataset.themeFlat = "true";
+  } else {
+    root.style.setProperty("--theme-frame", `url("${assets.frame}")`);
+    root.style.setProperty("--theme-input", `url("${assets.input}")`);
+    root.style.setProperty("--theme-button", `url("${assets.button}")`);
+    root.style.setProperty("--theme-button-hover", `url("${assets.buttonHover}")`);
+    root.style.setProperty("--theme-banner", `url("${assets.banner}")`);
+    delete root.dataset.themeFlat;
+  }
 
   root.style.setProperty("--theme-bg", colors.bg);
   root.style.setProperty("--theme-bg-translucent", colors.bgTranslucent);

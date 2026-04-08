@@ -65,6 +65,31 @@
   border-image: var(--theme-button-hover) 8 fill / 8px / 0 stretch;
 }
 
+/* Flat 테마 (에셋 없는 퓨어블랙/퓨어화이트 등): border-image 비활성화 + CSS 보더로 대체 */
+[data-theme-flat="true"] .pixel-panel {
+  border-image: none;
+  border: 1px solid var(--theme-text);
+  background-color: var(--theme-bg);
+  image-rendering: auto;
+}
+[data-theme-flat="true"] .pixel-input {
+  border-image: none;
+  border: 1px solid var(--theme-text-muted);
+  background-color: var(--theme-bg);
+  image-rendering: auto;
+}
+[data-theme-flat="true"] .pixel-button {
+  border-image: none;
+  border: 1px solid var(--theme-text);
+  background-color: var(--theme-header-bg);
+  image-rendering: auto;
+}
+[data-theme-flat="true"] .pixel-button:hover {
+  border-image: none;
+  background-color: var(--theme-text);
+  color: var(--theme-bg);
+}
+
 /* 유틸리티 */
 .font-pixel {
   font-family: var(--font-pixel);

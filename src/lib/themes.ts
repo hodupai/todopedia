@@ -2,7 +2,9 @@ export interface ThemeConfig {
   id: string;
   name: string;
   price: number;
-  assets: {
+  /** true면 9-slice 에셋 없이 CSS만으로 렌더링 (border-image: none) */
+  flat?: boolean;
+  assets?: {
     frame: string;
     input: string;
     button: string;
@@ -181,6 +183,46 @@ export const THEMES: Record<string, ThemeConfig> = {
       navBg: "#3a2818",
       navText: "#9a7a60",
       navTextActive: "#e8c888",
+    },
+  },
+  pure_black: {
+    id: "pure_black",
+    name: "퓨어블랙",
+    price: 3000,
+    flat: true,
+    colors: {
+      bg: "#000000",
+      bgTranslucent: "rgba(0, 0, 0, 0.7)",
+      panelText: "#ffffff",
+      panelTextMuted: "#9a9a9a",
+      placeholder: "#5a5a5a",
+      accent: "#ffffff",
+      gold: "#ffd700",
+      headerBg: "#0a0a0a",
+      headerText: "#ffffff",
+      navBg: "#0a0a0a",
+      navText: "#5a5a5a",
+      navTextActive: "#ffffff",
+    },
+  },
+  pure_white: {
+    id: "pure_white",
+    name: "퓨어화이트",
+    price: 3000,
+    flat: true,
+    colors: {
+      bg: "#ffffff",
+      bgTranslucent: "rgba(255, 255, 255, 0.7)",
+      panelText: "#000000",
+      panelTextMuted: "#6a6a6a",
+      placeholder: "#a0a0a0",
+      accent: "#000000",
+      gold: "#b8860b",
+      headerBg: "#f5f5f5",
+      headerText: "#000000",
+      navBg: "#f5f5f5",
+      navText: "#a0a0a0",
+      navTextActive: "#000000",
     },
   },
 };
