@@ -13,6 +13,7 @@ export type Todo = {
   repeat_days: number[] | null;
   target_count: number | null;
   habit_type: "positive" | "negative" | null;
+  sort_order: number;
   tags?: { name: string; color: string } | null;
 };
 

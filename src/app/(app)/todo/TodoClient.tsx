@@ -9,6 +9,7 @@ import {
   setDailyGoal,
   ensureDailyRecords,
   getTodoPageData,
+  reorderTodos,
 } from "./actions";
 import { postDailyGoalWall } from "../guardian/actions";
 import { hapticTap, hapticSuccess, hapticCelebrate } from "@/lib/haptic";
@@ -152,6 +153,7 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
   const [editTodo, setEditTodo] = useState<Todo | null>(null);
   const [tags, setTags] = useState<Tag[]>(initial.tags);
   const [filterTagId, setFilterTagId] = useState<string | null>(null);
+  const [reorderMode, setReorderMode] = useState(false);
   const [partyCompletedCount, setPartyCompletedCount] = useState<number>(initial.partyCompletedToday);
   const { setGold, setStreak } = useGold();
   const toast = useToast();
@@ -200,14 +202,44 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
   }, [fetchData]);
 
   const allTodoItems = todos.filter((t) => t.type !== "habit");
-  const todoItems = allTodoItems
-    .filter((t) => !filterTagId || t.tag_id === filterTagId)
-    .sort((a, b) => {
-      const aDone = records[a.id]?.is_completed ? 1 : 0;
-      const bDone = records[b.id]?.is_completed ? 1 : 0;
-      return aDone - bDone;
-    });
+  const todoItemsBase = allTodoItems.filter((t) => !filterTagId || t.tag_id === filterTagId);
+  const todoItems = reorderMode
+    ? todoItemsBase
+    : [...todoItemsBase].sort((a, b) => {
+        const aDone = records[a.id]?.is_completed ? 1 : 0;
+        const bDone = records[b.id]?.is_completed ? 1 : 0;
+        return aDone - bDone;
+      });
   const habitItems = todos.filter((t) => t.type === "habit").filter((t) => !filterTagId || t.tag_id === filterTagId);
+
+  // 순서 편집: 같은 type 그룹 내에서 위/아래로 이동 후 서버에 sort_order 일괄 저장
+  const moveTodo = async (id: string, dir: -1 | 1) => {
+    const isHabit = todos.find((t) => t.id === id)?.type === "habit";
+    const groupIds = todos
+      .filter((t) => (isHabit ? t.type === "habit" : t.type !== "habit"))
+      .map((t) => t.id);
+    const idx = groupIds.indexOf(id);
+    const swap = idx + dir;
+    if (idx < 0 || swap < 0 || swap >= groupIds.length) return;
+    [groupIds[idx], groupIds[swap]] = [groupIds[swap], groupIds[idx]];
+
+    // 로컬 todos 재정렬: 그룹 내 순서를 새 groupIds로 반영
+    const orderMap = new Map(groupIds.map((tid, i) => [tid, i]));
+    setTodos((prev) => {
+      const next = [...prev];
+      next.sort((a, b) => {
+        const aIn = orderMap.has(a.id);
+        const bIn = orderMap.has(b.id);
+        if (aIn && bIn) return (orderMap.get(a.id)! - orderMap.get(b.id)!);
+        return 0;
+      });
+      // stable sort: 같은 그룹만 비교, 다른 그룹은 원위치 유지
+      // 위 sort는 그룹 외 항목 사이엔 0 반환하므로 안정 정렬에 의해 원순서 보존
+      return next;
+    });
+    hapticTap();
+    await reorderTodos(groupIds);
+  };
   const completedCount =
     allTodoItems.filter((t) => records[t.id]?.is_completed).length +
     partyCompletedCount;
@@ -409,12 +441,21 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
           <h2 className="font-pixel text-base text-theme">
             {tab === "할 일" ? "할 일 목록" : "습관 트래커"}
           </h2>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center"
-          >
-            <Icon name="add" size={24} />
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setReorderMode((v) => !v)}
+              className="font-pixel text-xs"
+              style={{ color: reorderMode ? "var(--theme-accent)" : "var(--theme-placeholder)" }}
+            >
+              {reorderMode ? "완료" : "순서"}
+            </button>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center"
+            >
+              <Icon name="add" size={24} />
+            </button>
+          </div>
         </div>
 
         <div className="mt-3 space-y-2 overflow-y-auto scrollbar-hide pb-20">
@@ -427,16 +468,33 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
                 onCta={() => setShowCreateModal(true)}
               />
             ) : (
-              todoItems.map((todo) => (
-                <TodoItem
-                  key={todo.id}
-                  todo={todo}
-                  record={records[todo.id]}
-                  onToggle={handleToggle}
-                  onIncrement={handleIncrement}
-                  onEdit={setEditTodo}
-                  onDelete={handleDelete}
-                />
+              todoItems.map((todo, i) => (
+                <div key={todo.id} className="flex items-center gap-2">
+                  {reorderMode && (
+                    <div className="flex shrink-0 flex-col gap-1">
+                      <button
+                        onClick={() => moveTodo(todo.id, -1)}
+                        disabled={i === 0}
+                        className="pixel-button px-2 py-0.5 font-pixel text-[10px] text-theme disabled:opacity-30"
+                      >▲</button>
+                      <button
+                        onClick={() => moveTodo(todo.id, 1)}
+                        disabled={i === todoItems.length - 1}
+                        className="pixel-button px-2 py-0.5 font-pixel text-[10px] text-theme disabled:opacity-30"
+                      >▼</button>
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <TodoItem
+                      todo={todo}
+                      record={records[todo.id]}
+                      onToggle={handleToggle}
+                      onIncrement={handleIncrement}
+                      onEdit={setEditTodo}
+                      onDelete={handleDelete}
+                    />
+                  </div>
+                </div>
               ))
             )
           ) : habitItems.length === 0 ? (
@@ -447,15 +505,32 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
               onCta={() => setShowCreateModal(true)}
             />
           ) : (
-            habitItems.map((todo) => (
-              <HabitItem
-                key={todo.id}
-                todo={todo}
-                record={records[todo.id]}
-                onRecord={handleHabit}
-                onEdit={setEditTodo}
-                onDelete={handleDelete}
-              />
+            habitItems.map((todo, i) => (
+              <div key={todo.id} className="flex items-center gap-2">
+                {reorderMode && (
+                  <div className="flex shrink-0 flex-col gap-1">
+                    <button
+                      onClick={() => moveTodo(todo.id, -1)}
+                      disabled={i === 0}
+                      className="pixel-button px-2 py-0.5 font-pixel text-[10px] text-theme disabled:opacity-30"
+                    >▲</button>
+                    <button
+                      onClick={() => moveTodo(todo.id, 1)}
+                      disabled={i === habitItems.length - 1}
+                      className="pixel-button px-2 py-0.5 font-pixel text-[10px] text-theme disabled:opacity-30"
+                    >▼</button>
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <HabitItem
+                    todo={todo}
+                    record={records[todo.id]}
+                    onRecord={handleHabit}
+                    onEdit={setEditTodo}
+                    onDelete={handleDelete}
+                  />
+                </div>
+              </div>
             ))
           )}
         </div>

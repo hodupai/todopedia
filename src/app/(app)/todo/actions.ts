@@ -262,7 +262,7 @@ export async function getTodoPageData() {
     await Promise.all([
       supabase.from("profiles").select("daily_goal, last_goal_date").eq("id", user.id).single(),
       // archived_at: null이면 활성, 미래(=다음 KST 자정)면 오늘 하루는 보임
-      supabase.from("todos").select("*, tags(name, color)").eq("user_id", user.id).or(`archived_at.is.null,archived_at.gt.${new Date().toISOString()}`).order("is_important", { ascending: false }).order("created_at", { ascending: true }),
+      supabase.from("todos").select("*, tags(name, color)").eq("user_id", user.id).or(`archived_at.is.null,archived_at.gt.${new Date().toISOString()}`).order("is_important", { ascending: false }).order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
       supabase.from("daily_records").select("todo_id, is_completed, current_count").eq("user_id", user.id).eq("record_date", today),
       supabase.from("tags").select("id, name, color").eq("user_id", user.id).order("created_at"),
       // 가장 최근에 활동한 날짜 (오늘 제외)
@@ -373,6 +373,29 @@ export async function restoreArchivedTodo(todoId: string) {
 
   revalidatePath("/todo");
   revalidatePath("/settings/stats");
+  return { success: true };
+}
+
+// ── 투두 순서 일괄 변경 ──
+export async function reorderTodos(orderedIds: string[]) {
+  const supabase = await createClient();
+  const user = await getUserFromSession(supabase);
+  if (!user) return { error: "인증이 필요합니다." };
+  if (!Array.isArray(orderedIds) || orderedIds.length === 0) return { success: true };
+
+  // 한 번의 요청으로 처리: id별로 sort_order를 순차 업데이트
+  // (개수가 많지 않으므로 Promise.all)
+  const updates = orderedIds.map((id, i) =>
+    supabase
+      .from("todos")
+      .update({ sort_order: i + 1 })
+      .eq("id", id)
+      .eq("user_id", user.id)
+  );
+  const results = await Promise.all(updates);
+  if (results.some((r) => r.error)) return { error: "순서 변경에 실패했습니다." };
+
+  revalidatePath("/todo");
   return { success: true };
 }
 
