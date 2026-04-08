@@ -214,31 +214,38 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
 
   // 순서 편집: 같은 type 그룹 내에서 위/아래로 이동 후 서버에 sort_order 일괄 저장
   const moveTodo = async (id: string, dir: -1 | 1) => {
-    const isHabit = todos.find((t) => t.id === id)?.type === "habit";
-    const groupIds = todos
-      .filter((t) => (isHabit ? t.type === "habit" : t.type !== "habit"))
-      .map((t) => t.id);
-    const idx = groupIds.indexOf(id);
-    const swap = idx + dir;
-    if (idx < 0 || swap < 0 || swap >= groupIds.length) return;
-    [groupIds[idx], groupIds[swap]] = [groupIds[swap], groupIds[idx]];
+    const target = todos.find((t) => t.id === id);
+    if (!target) return;
+    const isHabit = target.type === "habit";
+    const inGroup = (t: Todo) => (isHabit ? t.type === "habit" : t.type !== "habit");
 
-    // 로컬 todos 재정렬: 그룹 내 순서를 새 groupIds로 반영
-    const orderMap = new Map(groupIds.map((tid, i) => [tid, i]));
     setTodos((prev) => {
-      const next = [...prev];
-      next.sort((a, b) => {
-        const aIn = orderMap.has(a.id);
-        const bIn = orderMap.has(b.id);
-        if (aIn && bIn) return (orderMap.get(a.id)! - orderMap.get(b.id)!);
-        return 0;
+      // 그룹 내 항목들의 prev 인덱스(슬롯)와 현재 순서 추출
+      const slots: number[] = [];
+      const groupOrder: string[] = [];
+      prev.forEach((t, i) => {
+        if (inGroup(t)) {
+          slots.push(i);
+          groupOrder.push(t.id);
+        }
       });
-      // stable sort: 같은 그룹만 비교, 다른 그룹은 원위치 유지
-      // 위 sort는 그룹 외 항목 사이엔 0 반환하므로 안정 정렬에 의해 원순서 보존
+      const idx = groupOrder.indexOf(id);
+      const swap = idx + dir;
+      if (idx < 0 || swap < 0 || swap >= groupOrder.length) return prev;
+      [groupOrder[idx], groupOrder[swap]] = [groupOrder[swap], groupOrder[idx]];
+
+      // 슬롯 위치에 새 순서의 todo를 꽂음 (그룹 외 요소는 그대로)
+      const byId = new Map(prev.map((t) => [t.id, t]));
+      const next = [...prev];
+      slots.forEach((slotIdx, i) => {
+        next[slotIdx] = byId.get(groupOrder[i])!;
+      });
+
+      // 서버 저장 (새 순서 기반)
+      reorderTodos(groupOrder);
       return next;
     });
     hapticTap();
-    await reorderTodos(groupIds);
   };
   const completedCount =
     allTodoItems.filter((t) => records[t.id]?.is_completed).length +
