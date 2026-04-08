@@ -1,4 +1,4 @@
-import { getMonthlyStats, getOverallStats } from "./actions";
+import { getMonthlyStats, getOverallStats, getRecentDayDetails } from "./actions";
 import { getRecentArchivedTodos } from "../../todo/actions";
 import StatsClient from "./StatsClient";
 
@@ -7,10 +7,11 @@ export default async function StatsPage() {
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
 
-  const [monthStats, overall, archivedTodos] = await Promise.all([
+  const [monthStats, overall, archivedTodos, dayDetails] = await Promise.all([
     getMonthlyStats(year, month),
     getOverallStats(),
     getRecentArchivedTodos(),
+    getRecentDayDetails(30),
   ]);
 
   return (
@@ -20,6 +21,7 @@ export default async function StatsPage() {
       initialMonthStats={monthStats}
       initialOverall={overall}
       initialArchivedTodos={archivedTodos}
+      initialDayDetails={dayDetails}
     />
   );
 }

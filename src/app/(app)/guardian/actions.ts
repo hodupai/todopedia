@@ -176,7 +176,7 @@ export async function getOwnedPotions(): Promise<OwnedPotion[]> {
 }
 
 export type ActivityLog = {
-  type: "todo" | "care" | "buy_item" | "buy_potion" | "heart_given" | "heart_received";
+  type: "todo" | "habit_pos" | "habit_neg" | "care" | "buy_item" | "buy_potion" | "heart_given" | "heart_received";
   title: string;
   gold: number;
   time: string;

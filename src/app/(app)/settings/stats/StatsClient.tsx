@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { getMonthlyStats } from "./actions";
-import type { DayStat, OverallStats } from "./actions";
+import type { DayStat, OverallStats, DayDetail } from "./actions";
 import { restoreArchivedTodo, type ArchivedTodoRow } from "../../todo/actions";
 import { useToast } from "@/components/Toast";
 
@@ -15,12 +15,14 @@ export default function StatsClient({
   initialMonthStats,
   initialOverall,
   initialArchivedTodos,
+  initialDayDetails,
 }: {
   initialYear: number;
   initialMonth: number;
   initialMonthStats: DayStat[];
   initialOverall: OverallStats | null;
   initialArchivedTodos: ArchivedTodoRow[];
+  initialDayDetails: DayDetail[];
 }) {
   const router = useRouter();
   const { show: showToast } = useToast();
@@ -32,6 +34,13 @@ export default function StatsClient({
   const [loading, setLoading] = useState(false);
   const [archivedTodos, setArchivedTodos] = useState<ArchivedTodoRow[]>(initialArchivedTodos);
   const [showArchived, setShowArchived] = useState(false);
+  const [dayDetails] = useState<DayDetail[]>(initialDayDetails);
+  const [showDetails, setShowDetails] = useState(false);
+  const [expandedDays, setExpandedDays] = useState<Set<string>>(() => {
+    const s = new Set<string>();
+    if (initialDayDetails[0]) s.add(initialDayDetails[0].date);
+    return s;
+  });
   const [restorePending, startRestore] = useTransition();
   const isFirstRender = useRef(true);
 
@@ -235,6 +244,86 @@ export default function StatsClient({
           </div>
         </div>
       )}
+
+      {/* 최근 30일 세부 내역 (해빗 트래커 역할) */}
+      <div className="pixel-panel p-4">
+        <button
+          onClick={() => setShowDetails(!showDetails)}
+          className="flex w-full items-center justify-between"
+        >
+          <h2 className="font-pixel text-sm text-theme">최근 30일 세부 내역</h2>
+          <span className="font-pixel text-xs text-theme-muted">
+            {dayDetails.length}일 {showDetails ? "▲" : "▼"}
+          </span>
+        </button>
+
+        {showDetails && (
+          <div className="mt-3 space-y-2">
+            {dayDetails.length === 0 ? (
+              <p className="font-pixel text-xs text-theme-muted text-center py-4">
+                최근 30일 동안 기록이 없어요
+              </p>
+            ) : (
+              dayDetails.map((d) => {
+                const expanded = expandedDays.has(d.date);
+                const dateObj = new Date(d.date + "T00:00:00");
+                const label = `${dateObj.getMonth() + 1}/${dateObj.getDate()} (${DAY_NAMES[dateObj.getDay()]})`;
+                return (
+                  <div key={d.date}>
+                    <button
+                      onClick={() => {
+                        const next = new Set(expandedDays);
+                        if (expanded) next.delete(d.date);
+                        else next.add(d.date);
+                        setExpandedDays(next);
+                      }}
+                      className="pixel-input flex w-full items-center justify-between p-2"
+                    >
+                      <span className="font-pixel text-xs text-theme">{label}</span>
+                      <span className="font-pixel text-[10px] text-theme-muted">
+                        {d.items.length}건 {expanded ? "▲" : "▼"}
+                      </span>
+                    </button>
+                    {expanded && (
+                      <div className="mt-1 ml-2 space-y-1">
+                        {d.items.map((it, i) => {
+                          const t = new Date(it.time);
+                          const hh = String(t.getHours()).padStart(2, "0");
+                          const mm = String(t.getMinutes()).padStart(2, "0");
+                          const icon =
+                            it.kind === "todo" ? "✅" :
+                            it.kind === "loop" ? "🔁" :
+                            it.kind === "habit_pos" ? "📈" :
+                            it.kind === "habit_neg" ? "📉" :
+                            "👥";
+                          const suffix =
+                            it.kind === "habit_pos" ? ` (+${it.count})` :
+                            it.kind === "habit_neg" ? ` (-${it.count})` :
+                            "";
+                          return (
+                            <div key={i} className="flex items-center gap-2 font-pixel text-[10px]">
+                              <span className="shrink-0 text-theme-muted">{hh}:{mm}</span>
+                              <span className="shrink-0">{icon}</span>
+                              <span className="flex-1 truncate text-theme">
+                                {it.title}{suffix}
+                              </span>
+                              {it.gold > 0 && (
+                                <span className="shrink-0" style={{ color: "var(--theme-gold)" }}>
+                                  +{it.gold}G
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+      </div>
 
       {/* 최근 완료한 일회성 투두 (지난 7일, 되돌리기 가능) */}
       <div className="pixel-panel p-4">

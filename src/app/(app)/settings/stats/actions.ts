@@ -10,6 +10,19 @@ export type DayStat = {
   care: number;
 };
 
+export type DayDetailItem = {
+  kind: "todo" | "loop" | "habit_pos" | "habit_neg" | "party";
+  title: string;
+  count?: number;
+  gold: number;
+  time: string; // ISO timestamp
+};
+
+export type DayDetail = {
+  date: string;
+  items: DayDetailItem[];
+};
+
 export type OverallStats = {
   totalTodos: number;
   totalGold: number;
@@ -65,6 +78,88 @@ export async function getMonthlyStats(year: number, month: number): Promise<DayS
   });
 
   return Object.values(dayMap);
+}
+
+// ── 최근 N일 세부 내역 (일반/루프/습관/파티) ──
+export async function getRecentDayDetails(days: number = 30): Promise<DayDetail[]> {
+  const supabase = await createClient();
+  const user = await getUserFromSession(supabase);
+  if (!user) return [];
+
+  // KST 기준 오늘
+  const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  const todayStr = kstNow.toISOString().split("T")[0];
+  const since = new Date(kstNow);
+  since.setDate(since.getDate() - (days - 1));
+  const sinceStr = since.toISOString().split("T")[0];
+
+  const [{ data: records }, { data: partyRecords }] = await Promise.all([
+    supabase
+      .from("daily_records")
+      .select("record_date, is_completed, current_count, gold_earned, updated_at, todos!inner(title, type, habit_type)")
+      .eq("user_id", user.id)
+      .gte("record_date", sinceStr)
+      .lte("record_date", todayStr)
+      .order("updated_at", { ascending: false }),
+    supabase
+      .from("party_daily_records")
+      .select("record_date, gold_earned, created_at, is_completed, party_todos!inner(title, parties!inner(name))")
+      .eq("user_id", user.id)
+      .eq("is_completed", true)
+      .gte("record_date", sinceStr)
+      .lte("record_date", todayStr),
+  ]);
+
+  const dayMap: Record<string, DayDetailItem[]> = {};
+  const push = (date: string, item: DayDetailItem) => {
+    if (!dayMap[date]) dayMap[date] = [];
+    dayMap[date].push(item);
+  };
+
+  (records || []).forEach((r: any) => {
+    const todo = r.todos;
+    if (!todo) return;
+    if (todo.type === "habit") {
+      if (!r.current_count || r.current_count <= 0) return;
+      push(r.record_date, {
+        kind: todo.habit_type === "negative" ? "habit_neg" : "habit_pos",
+        title: todo.title,
+        count: r.current_count,
+        gold: r.gold_earned || 0,
+        time: r.updated_at,
+      });
+    } else {
+      if (!r.is_completed) return;
+      push(r.record_date, {
+        kind: todo.type === "loop" ? "loop" : "todo",
+        title: todo.title,
+        gold: r.gold_earned || 0,
+        time: r.updated_at,
+      });
+    }
+  });
+
+  (partyRecords || []).forEach((r: any) => {
+    const pt = r.party_todos;
+    if (!pt) return;
+    const partyName = pt.parties?.name || "파티";
+    push(r.record_date, {
+      kind: "party",
+      title: `[${partyName}] ${pt.title}`,
+      gold: r.gold_earned || 0,
+      time: r.created_at,
+    });
+  });
+
+  // 날짜 내림차순, 각 날 내부 시간 내림차순
+  const result: DayDetail[] = Object.keys(dayMap)
+    .sort((a, b) => (a < b ? 1 : -1))
+    .map((date) => ({
+      date,
+      items: dayMap[date].sort((a, b) => (a.time < b.time ? 1 : -1)),
+    }));
+
+  return result;
 }
 
 // ── 전체 통계 ──

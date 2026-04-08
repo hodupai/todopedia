@@ -399,6 +399,8 @@ export default function GuardianClient({ initial }: { initial: GuardianPageIniti
               <div key={i} className="flex items-center gap-2 font-pixel text-xs">
                 <span className="shrink-0">
                   {log.type === "todo" && "✅"}
+                  {log.type === "habit_pos" && "📈"}
+                  {log.type === "habit_neg" && "📉"}
                   {log.type === "care" && "💝"}
                   {(log.type === "buy_item" || log.type === "buy_potion") && "🛒"}
                   {log.type === "heart_given" && "💗"}
@@ -406,6 +408,8 @@ export default function GuardianClient({ initial }: { initial: GuardianPageIniti
                 </span>
                 <span className="flex-1 text-theme truncate">
                   {log.type === "todo" && `${log.title} 완료!`}
+                  {log.type === "habit_pos" && log.title}
+                  {log.type === "habit_neg" && log.title}
                   {log.type === "care" && `${log.title}(으)로 돌봄`}
                   {log.type === "buy_item" && `${log.title} 구매`}
                   {log.type === "buy_potion" && `${log.title} 구매`}
