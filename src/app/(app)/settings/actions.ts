@@ -99,6 +99,26 @@ export async function claimAchievement(key: string) {
   return { success: true, data };
 }
 
+export async function changeNickname(nickname: string) {
+  const supabase = await createClient();
+  const user = await getUserFromSession(supabase);
+  if (!user) return { error: "인증이 필요합니다." };
+
+  const { data, error } = await supabase.rpc("change_nickname", {
+    p_user_id: user.id,
+    p_nickname: nickname,
+    p_cost: 2000,
+  });
+  if (error) return { error: "변경에 실패했습니다." };
+  if (data?.error === "empty_nickname") return { error: "닉네임을 입력해주세요." };
+  if (data?.error === "too_long") return { error: "닉네임은 20자 이하여야 해요." };
+  if (data?.error === "same_nickname") return { error: "현재 닉네임과 같아요." };
+  if (data?.error === "insufficient_gold") return { error: "골드가 부족해요. (2,000G 필요)" };
+  if (data?.error === "nickname_taken") return { error: "이미 사용 중인 닉네임이에요." };
+  if (data?.error) return { error: "변경에 실패했습니다." };
+  return { success: true, nickname: data.nickname as string, gold: data.gold as number };
+}
+
 export async function setTitle(title: string | null) {
   const supabase = await createClient();
   const user = await getUserFromSession(supabase);

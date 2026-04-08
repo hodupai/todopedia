@@ -11,11 +11,14 @@ import {
   setTitle as setTitleAction,
   submitFeedback,
   deleteOwnAccount,
+  changeNickname,
   type SettingsPageData,
   type SettingsProfile,
   type SettingsInviteCode,
   type SettingsAchievement,
 } from "./actions";
+import { generateNickname } from "@/lib/nickname";
+import { useGold } from "@/components/GoldProvider";
 
 type Profile = SettingsProfile;
 type InviteCode = SettingsInviteCode;
@@ -31,7 +34,9 @@ export default function SettingsClient({ initial }: { initial: SettingsPageData 
   const [showCodes, setShowCodes] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
+  const [showNicknameModal, setShowNicknameModal] = useState(false);
   const { show: showToast } = useToast();
+  const { setGold } = useGold();
 
   const [claimableKeys, setClaimableKeys] = useState<Set<string>>(new Set(initial.claimableKeys));
 
@@ -86,9 +91,17 @@ export default function SettingsClient({ initial }: { initial: SettingsPageData 
             <span className="text-theme-muted">아이디</span>
             <span className="text-theme">{profile?.username || "-"}</span>
           </div>
-          <div className="flex justify-between font-pixel text-xs">
+          <div className="flex items-center justify-between font-pixel text-xs">
             <span className="text-theme-muted">닉네임</span>
-            <span className="text-theme">{profile?.nickname || "-"}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-theme">{profile?.nickname || "-"}</span>
+              <button
+                onClick={() => setShowNicknameModal(true)}
+                className="pixel-button px-2 py-0.5 font-pixel text-[10px] text-theme-muted"
+              >
+                변경
+              </button>
+            </div>
           </div>
           <div className="flex justify-between font-pixel text-xs">
             <span className="text-theme-muted">가입일</span>
@@ -294,6 +307,19 @@ export default function SettingsClient({ initial }: { initial: SettingsPageData 
         />
       )}
 
+      {showNicknameModal && profile && (
+        <NicknameModal
+          current={profile.nickname}
+          onClose={() => setShowNicknameModal(false)}
+          onApplied={(newNick, newGold) => {
+            setProfile((p) => (p ? { ...p, nickname: newNick } : p));
+            setGold(newGold);
+            setShowNicknameModal(false);
+            showToast(`닉네임 변경 완료!`, newNick);
+          }}
+        />
+      )}
+
       {showFeedback && (
         <FeedbackModal
           onClose={() => setShowFeedback(false)}
@@ -303,6 +329,105 @@ export default function SettingsClient({ initial }: { initial: SettingsPageData 
           }}
         />
       )}
+    </div>
+  );
+}
+
+// 닉네임 리롤 모달 — 2,000G 소모
+function NicknameModal({
+  current,
+  onClose,
+  onApplied,
+}: {
+  current: string;
+  onClose: () => void;
+  onApplied: (nickname: string, gold: number) => void;
+}) {
+  const { gold } = useGold();
+  const [candidate, setCandidate] = useState<string>(() => generateNickname());
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const COST = 2000;
+
+  const reroll = () => {
+    setError(null);
+    setCandidate(generateNickname());
+  };
+
+  const apply = async () => {
+    setError(null);
+    setSubmitting(true);
+    const r = await changeNickname(candidate);
+    setSubmitting(false);
+    if (r.error) {
+      setError(r.error);
+      return;
+    }
+    onApplied(r.nickname!, r.gold!);
+  };
+
+  const notEnough = gold < COST;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="pixel-panel w-full max-w-sm space-y-4 p-5"
+      >
+        <h3 className="font-pixel text-sm text-theme text-center">닉네임 변경</h3>
+
+        <div className="space-y-2">
+          <p className="font-pixel text-xs text-theme-muted text-center">현재</p>
+          <p className="font-pixel text-sm text-theme-muted text-center line-through">
+            {current}
+          </p>
+          <p className="font-pixel text-xs text-theme-muted text-center pt-2">새 닉네임</p>
+          <p className="font-pixel text-base text-theme text-center" style={{ color: "var(--theme-accent)" }}>
+            {candidate}
+          </p>
+        </div>
+
+        <button
+          onClick={reroll}
+          disabled={submitting}
+          className="pixel-button w-full py-2 font-pixel text-xs text-theme disabled:opacity-50"
+        >
+          🎲 다시 뽑기
+        </button>
+
+        <div className="flex items-center justify-between font-pixel text-xs">
+          <span className="text-theme-muted">비용</span>
+          <span style={{ color: notEnough ? "var(--theme-accent)" : "var(--theme-gold)" }}>
+            -{COST}G (보유 {gold}G)
+          </span>
+        </div>
+
+        {error && (
+          <p className="font-pixel text-xs text-center" style={{ color: "var(--theme-accent)" }}>
+            {error}
+          </p>
+        )}
+
+        <div className="flex gap-2">
+          <button
+            onClick={apply}
+            disabled={submitting || notEnough}
+            className="pixel-button flex-1 py-2 font-pixel text-xs text-theme disabled:opacity-40"
+          >
+            {submitting ? "적용 중..." : "적용"}
+          </button>
+          <button
+            onClick={onClose}
+            disabled={submitting}
+            className="pixel-button flex-1 py-2 font-pixel text-xs text-theme-muted"
+          >
+            취소
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
