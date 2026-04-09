@@ -177,6 +177,14 @@ export function CreateModal({
             placeholder={type === "habit" ? "습관 이름" : "할 일 입력"}
           />
 
+          <textarea
+            name="description"
+            maxLength={500}
+            rows={2}
+            className="pixel-input w-full resize-none bg-transparent px-3 py-2 font-pixel text-sm text-theme placeholder:text-theme-muted focus:outline-none"
+            placeholder="상세 내역 (선택, 최대 500자)"
+          />
+
           {error && (
             <p className="font-pixel text-center text-sm text-red-600">{error}</p>
           )}
@@ -452,6 +460,15 @@ export function EditModal({
             required
             defaultValue={todo.title}
             className="pixel-input w-full bg-transparent px-3 py-2.5 font-pixel text-sm text-theme focus:outline-none"
+          />
+
+          <textarea
+            name="description"
+            maxLength={500}
+            rows={2}
+            defaultValue={todo.description ?? ""}
+            className="pixel-input w-full resize-none bg-transparent px-3 py-2 font-pixel text-sm text-theme placeholder:text-theme-muted focus:outline-none"
+            placeholder="상세 내역 (선택, 최대 500자)"
           />
 
           <div className="flex items-start gap-2">

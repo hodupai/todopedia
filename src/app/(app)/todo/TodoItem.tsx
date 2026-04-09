@@ -88,6 +88,16 @@ export default function TodoItem({
           </div>
         </div>
 
+        {/* 상세 내역 */}
+        {todo.description && (
+          <p
+            className="font-pixel text-xs text-theme-muted whitespace-pre-wrap break-words"
+            style={{ paddingLeft: 30 }}
+          >
+            {todo.description}
+          </p>
+        )}
+
         {/* 2행: 태그 + 반복 정보 (제목 아래 정렬: 체크박스 22 + gap 8 = 30px 들여쓰기) */}
         {(todo.tags || todo.repeat_type) && (
           <div className="flex items-center justify-between gap-2" style={{ paddingLeft: 30 }}>

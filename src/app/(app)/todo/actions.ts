@@ -14,6 +14,7 @@ export async function createTodo(formData: FormData) {
   if (!user) return { error: "인증이 필요합니다." };
 
   const title = formData.get("title") as string;
+  const description = formData.get("description") as string | null;
   const type = (formData.get("type") as string) || "normal";
   const tagId = formData.get("tagId") as string | null;
   const isImportant = formData.get("isImportant") === "true";
@@ -27,6 +28,7 @@ export async function createTodo(formData: FormData) {
   const { error } = await supabase.from("todos").insert({
     user_id: user.id,
     title: title.trim(),
+    description: description?.trim() ? description.trim().slice(0, 500) : null,
     type,
     tag_id: tagId || null,
     is_important: isImportant,
@@ -49,6 +51,7 @@ export async function updateTodo(formData: FormData) {
 
   const id = formData.get("id") as string;
   const title = formData.get("title") as string;
+  const description = formData.get("description") as string | null;
   const tagId = formData.get("tagId") as string | null;
   const isImportant = formData.get("isImportant") === "true";
   const repeatType = formData.get("repeatType") as string | null;
@@ -60,6 +63,7 @@ export async function updateTodo(formData: FormData) {
     .from("todos")
     .update({
       title: title.trim(),
+      description: description?.trim() ? description.trim().slice(0, 500) : null,
       tag_id: tagId || null,
       is_important: isImportant,
       repeat_type: repeatType || null,

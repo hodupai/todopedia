@@ -7,6 +7,7 @@ export type Todo = {
   id: string;
   type: "normal" | "loop" | "habit";
   title: string;
+  description: string | null;
   tag_id: string | null;
   is_important: boolean;
   repeat_type: "daily" | "weekly" | "monthly" | null;

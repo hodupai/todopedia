@@ -16,6 +16,7 @@ export type PartyTodo = {
   id: string;
   party_id: string;
   title: string;
+  description: string | null;
   target_count: number;
   repeat_type: string | null;
   repeat_days: number[] | null;
@@ -136,7 +137,7 @@ export async function getPartyTodos(partyId: string) {
 
   const { data: todos } = await supabase
     .from("party_todos")
-    .select("id, party_id, title, target_count, repeat_type, repeat_days, created_by")
+    .select("id, party_id, title, description, target_count, repeat_type, repeat_days, created_by")
     .eq("party_id", partyId)
     .or(`archived_at.is.null,archived_at.gt.${nowIso}`)
     .order("created_at");
@@ -193,16 +194,18 @@ export async function getPartyLogs(partyId: string): Promise<PartyLog[]> {
 // ── 파티 투두 생성 ──
 export async function createPartyTodo(
   partyId: string, title: string, targetCount: number = 1,
-  repeatType?: string, repeatDays?: number[]
+  repeatType?: string, repeatDays?: number[], description?: string
 ) {
   const supabase = await createClient();
   const user = await getUserFromSession(supabase);
   if (!user) return { error: "인증이 필요합니다." };
 
+  const trimmed = description?.trim().slice(0, 500) || null;
   const { data, error } = await supabase.rpc("create_party_todo", {
     p_user_id: user.id, p_party_id: partyId, p_title: title,
     p_target_count: targetCount,
     p_repeat_type: repeatType || null, p_repeat_days: repeatDays || null,
+    p_description: trimmed,
   });
   if (error) {
     if (error.message.includes("not_leader")) return { error: "파티장만 투두를 만들 수 있어요." };
@@ -212,16 +215,18 @@ export async function createPartyTodo(
 }
 
 // ── 파티 투두 수정 ──
-export async function updatePartyTodo(partyTodoId: string, title: string, targetCount?: number) {
+export async function updatePartyTodo(partyTodoId: string, title: string, targetCount?: number, description?: string) {
   const supabase = await createClient();
   const user = await getUserFromSession(supabase);
   if (!user) return { error: "인증이 필요합니다." };
 
+  const trimmed = description?.trim().slice(0, 500) || null;
   const { error } = await supabase.rpc("update_party_todo", {
     p_user_id: user.id,
     p_party_todo_id: partyTodoId,
     p_title: title,
     p_target_count: targetCount ?? null,
+    p_description: trimmed,
   });
   if (error) {
     if (error.message.includes("not_creator")) return { error: "만든 사람만 수정할 수 있어요." };

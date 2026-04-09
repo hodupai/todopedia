@@ -22,7 +22,8 @@ export default function HabitItem({
   const isPositive = todo.habit_type === "positive";
 
   return (
-    <div data-todo-id={todo.id} className="pixel-input flex items-center gap-2 px-3 py-2">
+    <div data-todo-id={todo.id} className="pixel-input flex flex-col gap-1 px-3 py-2">
+    <div className="flex items-center gap-2">
       {/* 좌측: 타입 아이콘 */}
       <Icon name={isPositive ? "habit-good" : "habit-bad"} size={20} />
 
@@ -77,6 +78,12 @@ export default function HabitItem({
           </div>
         )}
       </div>
+    </div>
+    {todo.description && (
+      <p className="font-pixel text-xs text-theme-muted whitespace-pre-wrap break-words" style={{ paddingLeft: 28 }}>
+        {todo.description}
+      </p>
+    )}
     </div>
   );
 }

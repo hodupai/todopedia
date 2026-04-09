@@ -100,8 +100,8 @@ function PartySection({ party, userId, onRefresh, onPartyComplete }: { party: Pa
     loadPartyData();
   };
 
-  const handleUpdate = async (todoId: string, title: string, targetCount?: number) => {
-    const r = await updatePartyTodo(todoId, title, targetCount);
+  const handleUpdate = async (todoId: string, title: string, targetCount?: number, description?: string) => {
+    const r = await updatePartyTodo(todoId, title, targetCount, description);
     if (r.error) { showToast(r.error); return false; }
     loadPartyData();
     return true;
@@ -160,6 +160,11 @@ function PartySection({ party, userId, onRefresh, onPartyComplete }: { party: Pa
                       </p>
                     )}
                     <p className="font-pixel text-xs text-theme truncate">{todo.title}</p>
+                    {todo.description && (
+                      <p className="font-pixel text-[11px] text-theme-muted whitespace-pre-wrap break-words">
+                        {todo.description}
+                      </p>
+                    )}
                     {party.type === "collaborative" && (
                       <p className="font-pixel text-xs text-theme-muted">
                         {todayCount}/{todo.target_count}
@@ -171,7 +176,7 @@ function PartySection({ party, userId, onRefresh, onPartyComplete }: { party: Pa
                       todo={todo}
                       isCollaborative={party.type === "collaborative"}
                       onDelete={() => handleDelete(todo.id)}
-                      onUpdate={(title, tc) => handleUpdate(todo.id, title, tc)}
+                      onUpdate={(title, tc, desc) => handleUpdate(todo.id, title, tc, desc)}
                     />
                   )}
                 </div>
@@ -226,16 +231,17 @@ function PartyTodoMenu({
   todo: PartyTodo;
   isCollaborative: boolean;
   onDelete: () => void;
-  onUpdate: (title: string, targetCount?: number) => Promise<boolean>;
+  onUpdate: (title: string, targetCount?: number, description?: string) => Promise<boolean>;
 }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(todo.title);
+  const [description, setDescription] = useState(todo.description ?? "");
   const [targetCount, setTargetCount] = useState(todo.target_count);
 
   const submit = async () => {
     if (!title.trim()) return;
-    const ok = await onUpdate(title.trim(), isCollaborative ? targetCount : undefined);
+    const ok = await onUpdate(title.trim(), isCollaborative ? targetCount : undefined, description);
     if (ok) { setEditing(false); setOpen(false); }
   };
 
@@ -264,6 +270,14 @@ function PartyTodoMenu({
               onChange={(e) => setTitle(e.target.value)}
               className="pixel-input w-full bg-transparent px-2 py-1.5 font-pixel text-xs text-theme focus:outline-none"
             />
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              maxLength={500}
+              rows={2}
+              placeholder="상세 내역 (선택, 최대 500자)"
+              className="pixel-input w-full resize-none bg-transparent px-2 py-1.5 font-pixel text-xs text-theme placeholder:text-theme-muted focus:outline-none"
+            />
             {isCollaborative && (
               <div className="flex items-center gap-2">
                 <span className="font-pixel text-xs text-theme-muted">목표</span>
@@ -288,6 +302,7 @@ function PartyTodoMenu({
 
 function AddTodoForm({ party, onClose, onCreated }: { party: Party; onClose: () => void; onCreated: () => void }) {
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [targetCount, setTargetCount] = useState(party.members.length);
   const { show: showToast } = useToast();
 
@@ -295,7 +310,9 @@ function AddTodoForm({ party, onClose, onCreated }: { party: Party; onClose: () 
     if (!title.trim()) return;
     const r = await createPartyTodo(
       party.id, title.trim(),
-      party.type === "collaborative" ? targetCount : 1
+      party.type === "collaborative" ? targetCount : 1,
+      undefined, undefined,
+      description
     );
     if (r.error) showToast(r.error);
     else onCreated();
@@ -308,6 +325,14 @@ function AddTodoForm({ party, onClose, onCreated }: { party: Party; onClose: () 
         onChange={(e) => setTitle(e.target.value)}
         placeholder="할 일 입력"
         className="pixel-input w-full bg-transparent px-2 py-1.5 font-pixel text-xs text-theme placeholder:text-theme-muted focus:outline-none"
+      />
+      <textarea
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        maxLength={500}
+        rows={2}
+        placeholder="상세 내역 (선택, 최대 500자)"
+        className="pixel-input w-full resize-none bg-transparent px-2 py-1.5 font-pixel text-xs text-theme placeholder:text-theme-muted focus:outline-none"
       />
       {party.type === "collaborative" && (
         <div className="flex items-center gap-2">
