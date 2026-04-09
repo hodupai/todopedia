@@ -143,36 +143,25 @@ export async function getPartyTodos(partyId: string) {
     .order("created_at");
 
   const allTodos = (todos as PartyTodo[]) || [];
-  const oneTimeIds = allTodos.filter((t) => !t.repeat_type).map((t) => t.id);
-  const recurringIds = allTodos.filter((t) => t.repeat_type).map((t) => t.id);
+  if (allTodos.length === 0) return { todos: allTodos, records: {} };
+
+  const todoIds = allTodos.map((t) => t.id);
+  const oneTimeIds = new Set(allTodos.filter((t) => !t.repeat_type).map((t) => t.id));
+
+  // 반복+일회성 레코드를 1회 쿼리로: 오늘 OR 일회성 투두의 전체 기록
+  const { data: allRecs } = await supabase
+    .from("party_daily_records")
+    .select("party_todo_id, user_id, is_completed, record_date")
+    .in("party_todo_id", todoIds)
+    .or(`record_date.eq.${today},party_todo_id.in.(${[...oneTimeIds].join(",")})`);
+
   const records: Record<string, PartyRecord[]> = {};
-
-  const pushRecs = (recs: PartyRecord[] | null) => {
-    (recs || []).forEach((r) => {
-      if (!records[r.party_todo_id]) records[r.party_todo_id] = [];
-      records[r.party_todo_id].push(r);
-    });
-  };
-
-  const [recurringRes, oneTimeRes] = await Promise.all([
-    recurringIds.length > 0
-      ? supabase
-          .from("party_daily_records")
-          .select("party_todo_id, user_id, is_completed")
-          .in("party_todo_id", recurringIds)
-          .eq("record_date", today)
-      : Promise.resolve({ data: null }),
-    // 일회성: 날짜 무관하게 누적 기록 (자정이 지나도 완료 표시 유지)
-    oneTimeIds.length > 0
-      ? supabase
-          .from("party_daily_records")
-          .select("party_todo_id, user_id, is_completed")
-          .in("party_todo_id", oneTimeIds)
-      : Promise.resolve({ data: null }),
-  ]);
-
-  pushRecs(recurringRes.data as PartyRecord[] | null);
-  pushRecs(oneTimeRes.data as PartyRecord[] | null);
+  (allRecs || []).forEach((r: PartyRecord & { record_date?: string }) => {
+    // 반복 투두는 오늘만, 일회성은 전체
+    if (!oneTimeIds.has(r.party_todo_id) && r.record_date !== today) return;
+    if (!records[r.party_todo_id]) records[r.party_todo_id] = [];
+    records[r.party_todo_id].push({ party_todo_id: r.party_todo_id, user_id: r.user_id, is_completed: r.is_completed });
+  });
 
   return { todos: allTodos, records };
 }

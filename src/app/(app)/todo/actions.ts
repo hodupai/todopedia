@@ -109,7 +109,7 @@ export async function toggleTodo(todoId: string) {
   if (error) return { error: "처리에 실패했습니다." };
   if (data?.error) return { error: data.error };
 
-  revalidatePath("/todo");
+  // revalidatePath 제거: 클라가 optimistic update 하므로 서버 재실행 불필요
   return {
     success: true,
     completed: data.completed,
@@ -138,7 +138,6 @@ export async function incrementLoop(todoId: string) {
   if (data?.error === "already_completed") return { error: "이미 완료되었습니다." };
   if (data?.error) return { error: "처리에 실패했습니다." };
 
-  revalidatePath("/todo");
   return {
     success: true,
     completed: data.completed,
@@ -165,7 +164,6 @@ export async function recordHabit(todoId: string) {
   if (error) return { error: "처리에 실패했습니다." };
   if (data?.error) return { error: "처리에 실패했습니다." };
 
-  revalidatePath("/todo");
   return {
     success: true,
     gold: data.gold,

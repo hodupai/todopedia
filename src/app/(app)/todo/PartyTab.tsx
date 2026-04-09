@@ -88,10 +88,17 @@ function PartySection({ party, userId, onRefresh, onPartyComplete }: { party: Pa
     else if (r.data?.all_done) showToast("🎉 목표 달성!");
     else showToast("기여 완료!");
     refreshGold();
-    // 일일 완료 카운트 반영: 각자/다함께 모두 기여 즉시 카운트
-    // (DB에서도 contribution 즉시 is_completed=true로 기록됨)
     onPartyComplete?.();
-    loadPartyData();
+    // 낙관적 업데이트: 로컬 records에 내 완료 추가 (풀 리페치 안 함)
+    if (userId) {
+      setRecords((prev) => {
+        const list = [...(prev[todoId] || [])];
+        if (!list.some((r) => r.user_id === userId)) {
+          list.push({ party_todo_id: todoId, user_id: userId, is_completed: true });
+        }
+        return { ...prev, [todoId]: list };
+      });
+    }
   };
 
   const handleDelete = async (todoId: string) => {
