@@ -277,7 +277,7 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
         comboBonus: result.comboBonus || 0,
       });
       toast.show(t.title, t.subtitle);
-      if (result.completedCount === result.dailyGoal && !alreadyCelebratedToday()) {
+      if (result.dailyGoal > 0 && result.completedCount === result.dailyGoal && !alreadyCelebratedToday()) {
         celebrateDailyGoalOnce(() => {
           hapticCelebrate();
           setTimeout(() => toast.show("🎉 일일 목표 달성!", undefined, "top-center"), 500);
@@ -317,7 +317,7 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
         isLoop: true,
       });
       toast.show(t.title, t.subtitle);
-      if (result.completedCount === result.dailyGoal && !alreadyCelebratedToday()) {
+      if (result.dailyGoal > 0 && result.completedCount === result.dailyGoal && !alreadyCelebratedToday()) {
         celebrateDailyGoalOnce(() => {
           hapticCelebrate();
           setTimeout(() => toast.show("🎉 일일 목표 달성!", undefined, "top-center"), 500);
