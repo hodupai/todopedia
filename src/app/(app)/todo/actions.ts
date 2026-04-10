@@ -378,26 +378,19 @@ export async function restoreArchivedTodo(todoId: string) {
   return { success: true };
 }
 
-// ── 투두 순서 일괄 변경 ──
+// ── 투두 순서 일괄 변경 (단일 RPC) ──
 export async function reorderTodos(orderedIds: string[]) {
   const supabase = await createClient();
   const user = await getUserFromSession(supabase);
   if (!user) return { error: "인증이 필요합니다." };
   if (!Array.isArray(orderedIds) || orderedIds.length === 0) return { success: true };
 
-  // 한 번의 요청으로 처리: id별로 sort_order를 순차 업데이트
-  // (개수가 많지 않으므로 Promise.all)
-  const updates = orderedIds.map((id, i) =>
-    supabase
-      .from("todos")
-      .update({ sort_order: i + 1 })
-      .eq("id", id)
-      .eq("user_id", user.id)
-  );
-  const results = await Promise.all(updates);
-  if (results.some((r) => r.error)) return { error: "순서 변경에 실패했습니다." };
+  const { error } = await supabase.rpc("reorder_todos", {
+    p_user_id: user.id,
+    p_ids: orderedIds,
+  });
+  if (error) return { error: "순서 변경에 실패했습니다." };
 
-  revalidatePath("/todo");
   return { success: true };
 }
 

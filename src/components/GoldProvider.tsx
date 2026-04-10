@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, type Dispatch, type SetStateAction } from "react";
+import { createContext, useContext, useState, useCallback, useRef, type Dispatch, type SetStateAction } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { getUserFromSession } from "@/lib/supabase/auth";
 
@@ -35,8 +35,13 @@ export default function GoldProvider({
 }) {
   const [gold, setGold] = useState(initialGold);
   const [streak, setStreak] = useState(initialStreak);
+  const lastRefreshRef = useRef(0);
 
   const refresh = useCallback(async () => {
+    const now = Date.now();
+    if (now - lastRefreshRef.current < 5000) return;
+    lastRefreshRef.current = now;
+
     const supabase = createClient();
     const user = await getUserFromSession(supabase);
     if (!user) return;
