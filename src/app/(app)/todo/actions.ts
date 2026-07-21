@@ -192,6 +192,43 @@ export async function createTag(name: string) {
   return { success: true, tag: data };
 }
 
+// ── 태그 사용 개수 조회 ──
+export async function getTagUsageCount(tagId: string) {
+  const supabase = await createClient();
+  const user = await getUserFromSession(supabase);
+  if (!user) return { error: "인증이 필요합니다." };
+
+  const { count, error } = await supabase
+    .from("todos")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .eq("tag_id", tagId);
+
+  if (error) return { error: "태그 사용 정보를 불러오지 못했습니다." };
+  return { success: true, count: count ?? 0 };
+}
+
+// ── 태그 삭제 ──
+export async function deleteTag(tagId: string) {
+  const supabase = await createClient();
+  const user = await getUserFromSession(supabase);
+  if (!user) return { error: "인증이 필요합니다." };
+
+  const { data, error } = await supabase
+    .from("tags")
+    .delete()
+    .eq("id", tagId)
+    .eq("user_id", user.id)
+    .select("id")
+    .maybeSingle();
+
+  if (error) return { error: "태그 삭제에 실패했습니다." };
+  if (!data) return { error: "삭제할 태그를 찾지 못했습니다." };
+
+  revalidatePath("/todo");
+  return { success: true };
+}
+
 // ── 반복 투두 오늘치 레코드 생성 ──
 export async function ensureDailyRecords() {
   const supabase = await createClient();

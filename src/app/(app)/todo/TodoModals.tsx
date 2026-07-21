@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { Icon, PixelToggle, DAY_NAMES, type Todo, type Tag } from "./todo-shared";
-import { createTodo, updateTodo, createTag } from "./actions";
+import { createTodo, updateTodo, createTag, deleteTag, getTagUsageCount } from "./actions";
 import { startGuardian } from "../guardian/actions";
+import { useToast } from "@/components/Toast";
 
 // ── 가디 시작 모달 (기간 + 일일 목표 선택) ──
 export function GuardianStartModal({ onStarted }: { onStarted: (goal: number) => void }) {
@@ -119,17 +120,137 @@ export function GuardianStartModal({ onStarted }: { onStarted: (goal: number) =>
   );
 }
 
+function TagManager({
+  tags,
+  onClose,
+  onDeleted,
+}: {
+  tags: Tag[];
+  onClose: () => void;
+  onDeleted: (tagId: string) => void;
+}) {
+  const [checkingId, setCheckingId] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<{ tag: Tag; usageCount: number } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const toast = useToast();
+
+  const requestDelete = async (tag: Tag) => {
+    setCheckingId(tag.id);
+    const result = await getTagUsageCount(tag.id);
+    setCheckingId(null);
+
+    if (result.error) {
+      toast.show(result.error);
+      return;
+    }
+
+    setConfirming({ tag, usageCount: result.count ?? 0 });
+  };
+
+  const confirmDelete = async () => {
+    if (!confirming) return;
+
+    setDeleting(true);
+    const result = await deleteTag(confirming.tag.id);
+    setDeleting(false);
+
+    if (result.error) {
+      toast.show(result.error);
+      return;
+    }
+
+    onDeleted(confirming.tag.id);
+    toast.show(`#${confirming.tag.name} 태그를 삭제했습니다.`);
+    setConfirming(null);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60 px-4 pb-20">
+      <div className="pixel-panel w-full max-w-sm space-y-3 p-5">
+        {confirming ? (
+          <>
+            <h3 className="font-pixel text-base text-theme">
+              #{confirming.tag.name} 태그를 삭제할까요?
+            </h3>
+            <p className="font-pixel text-sm leading-6 text-theme-muted">
+              {confirming.usageCount > 0
+                ? `연결된 투두 ${confirming.usageCount}개는 삭제되지 않고 태그만 해제됩니다.`
+                : "이 태그를 사용 중인 투두는 없습니다."}
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={confirmDelete}
+                disabled={deleting}
+                className="pixel-button flex-1 py-2 font-pixel text-sm text-red-600 disabled:opacity-40"
+              >
+                {deleting ? "삭제 중..." : "삭제"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirming(null)}
+                disabled={deleting}
+                className="pixel-button flex-1 py-2 font-pixel text-sm text-theme-muted disabled:opacity-40"
+              >
+                취소
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex items-center justify-between">
+              <h3 className="font-pixel text-base text-theme">태그 관리</h3>
+              <button
+                type="button"
+                onClick={onClose}
+                className="pixel-button px-3 py-1 font-pixel text-xs text-theme-muted"
+              >
+                닫기
+              </button>
+            </div>
+            <div className="max-h-72 space-y-2 overflow-y-auto">
+              {tags.length === 0 ? (
+                <p className="py-6 text-center font-pixel text-sm text-theme-muted">
+                  관리할 태그가 없습니다.
+                </p>
+              ) : (
+                tags.map((tag) => (
+                  <div key={tag.id} className="flex items-center justify-between gap-3">
+                    <span className="min-w-0 truncate font-pixel text-sm" style={{ color: tag.color }}>
+                      #{tag.name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => requestDelete(tag)}
+                      disabled={checkingId !== null}
+                      className="pixel-button shrink-0 px-3 py-1 font-pixel text-xs text-red-600 disabled:opacity-40"
+                    >
+                      {checkingId === tag.id ? "확인 중..." : "삭제"}
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── 투두 생성 모달 ──
 export function CreateModal({
   defaultType,
   tags,
   onClose,
   onCreated,
+  onTagDeleted,
 }: {
   defaultType: string;
   tags: Tag[];
   onClose: () => void;
   onCreated: () => void;
+  onTagDeleted: (tagId: string) => void;
 }) {
   const [type, setType] = useState(defaultType);
   const [targetCount, setTargetCount] = useState(1);
@@ -140,6 +261,7 @@ export function CreateModal({
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
   const [newTagName, setNewTagName] = useState("");
   const [localTags, setLocalTags] = useState<Tag[]>(tags);
+  const [showTagManager, setShowTagManager] = useState(false);
   const [error, setError] = useState("");
 
   const handleSubmit = async (formData: FormData) => {
@@ -314,6 +436,15 @@ export function CreateModal({
                 >
                   <Icon name="add" size={16} />
                 </button>
+                {localTags.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowTagManager(true)}
+                    className="pixel-button ml-auto px-2 py-1 font-pixel text-xs text-theme-muted"
+                  >
+                    관리
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -407,6 +538,17 @@ export function CreateModal({
             </button>
           </div>
         </form>
+        {showTagManager && (
+          <TagManager
+            tags={localTags}
+            onClose={() => setShowTagManager(false)}
+            onDeleted={(tagId) => {
+              setLocalTags((prev) => prev.filter((tag) => tag.id !== tagId));
+              setSelectedTagId((prev) => (prev === tagId ? null : prev));
+              onTagDeleted(tagId);
+            }}
+          />
+        )}
       </div>
     </div>
   );
@@ -418,11 +560,13 @@ export function EditModal({
   tags,
   onClose,
   onUpdated,
+  onTagDeleted,
 }: {
   todo: Todo;
   tags: Tag[];
   onClose: () => void;
   onUpdated: () => void;
+  onTagDeleted: (tagId: string) => void;
 }) {
   const [isImportant, setIsImportant] = useState(todo.is_important);
   const [repeatType, setRepeatType] = useState<string | null>(todo.repeat_type);
@@ -430,6 +574,7 @@ export function EditModal({
   const [selectedTagId, setSelectedTagId] = useState<string | null>(todo.tag_id);
   const [newTagName, setNewTagName] = useState("");
   const [localTags, setLocalTags] = useState<Tag[]>(tags);
+  const [showTagManager, setShowTagManager] = useState(false);
   const [error, setError] = useState("");
 
   const handleSubmit = async (formData: FormData) => {
@@ -518,6 +663,15 @@ export function EditModal({
                 >
                   <Icon name="add" size={16} />
                 </button>
+                {localTags.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowTagManager(true)}
+                    className="pixel-button ml-auto px-2 py-1 font-pixel text-xs text-theme-muted"
+                  >
+                    관리
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -613,6 +767,17 @@ export function EditModal({
             </button>
           </div>
         </form>
+        {showTagManager && (
+          <TagManager
+            tags={localTags}
+            onClose={() => setShowTagManager(false)}
+            onDeleted={(tagId) => {
+              setLocalTags((prev) => prev.filter((tag) => tag.id !== tagId));
+              setSelectedTagId((prev) => (prev === tagId ? null : prev));
+              onTagDeleted(tagId);
+            }}
+          />
+        )}
       </div>
     </div>
   );

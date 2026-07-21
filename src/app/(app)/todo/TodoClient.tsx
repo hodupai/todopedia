@@ -363,6 +363,23 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
     });
   };
 
+  const handleTagDeleted = (tagId: string) => {
+    setTags((prev) => prev.filter((tag) => tag.id !== tagId));
+    setFilterTagId((prev) => (prev === tagId ? null : prev));
+    setTodos((prev) =>
+      prev.map((todo) =>
+        todo.tag_id === tagId
+          ? { ...todo, tag_id: null, tags: null }
+          : todo
+      )
+    );
+    setEditTodo((prev) =>
+      prev?.tag_id === tagId
+        ? { ...prev, tag_id: null, tags: null }
+        : prev
+    );
+  };
+
   const handleGuardianStarted = async (goal: number) => {
     // 가디 시작 시 startGuardian이 daily_goal을 세팅하지만 last_goal_date는 안 세팅하므로,
     // setDailyGoal을 호출해서 오늘 모달이 다시 뜨지 않게 함.
@@ -586,6 +603,7 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
           tags={tags}
           onClose={() => setShowCreateModal(false)}
           onCreated={fetchData}
+          onTagDeleted={handleTagDeleted}
         />
       )}
       {editTodo && (
@@ -594,6 +612,7 @@ export default function TodoClient({ initial }: { initial: TodoPageInitial }) {
           tags={tags}
           onClose={() => setEditTodo(null)}
           onUpdated={fetchData}
+          onTagDeleted={handleTagDeleted}
         />
       )}
     </div>

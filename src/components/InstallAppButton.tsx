@@ -99,7 +99,7 @@ export default function InstallAppButton() {
               <p className="font-pixel text-xs text-theme-muted leading-relaxed">
                 Safari 하단의 <span className="text-theme">공유 버튼 ⎋</span>을
                 누른 뒤<br />
-                <span className="text-theme">"홈 화면에 추가"</span>를
+                <span className="text-theme">&quot;홈 화면에 추가&quot;</span>를
                 선택해주세요.
               </p>
               <button
